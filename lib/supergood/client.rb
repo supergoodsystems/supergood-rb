@@ -14,34 +14,38 @@ module Supergood
 
   class << self
     def init(supergood_client_id=nil, supergood_client_secret=nil, base_url=nil)
-
       supergood_client_id = supergood_client_id || ENV['SUPERGOOD_CLIENT_ID']
       supergood_client_secret = supergood_client_secret || ENV['SUPERGOOD_CLIENT_SECRET']
-      base_url = base_url || ENV['SUPERGOOD_BASE_URL'] || DEFAULT_SUPERGOOD_BASE_URL
-      puts "Initializing Supergood with client_id: #{supergood_client_id}, client_secret: #{supergood_client_secret}, base_url: #{base_url}"
+
+      if !supergood_client_id
+        raise SupergoodException.new ERRORS[:NO_CLIENT_ID]
+      end
+
+      if !supergood_client_secret
+        raise SupergoodException.new ERRORS[:NO_CLIENT_SECRET]
+      end
+
+      @base_url = base_url || ENV['SUPERGOOD_BASE_URL'] || DEFAULT_SUPERGOOD_BASE_URL
       header_options = {
-        'headers' => {
-          'Content-Type' => 'application/json',
-          'Authorization' => 'Basic ' + Base64.encode64(supergood_client_id + ':' + supergood_client_secret)
-        }
+        'Content-Type' => 'application/json',
+        'Authorization' => 'Basic ' + Base64.encode64(supergood_client_id + ':' + supergood_client_secret).gsub(/\n/, '')
       }
 
-      @api = Supergood::Api.new(header_options, base_url)
-      @logger = Supergood::Logger.new(@api, header_options, base_url)
+      @api = Supergood::Api.new(header_options, @base_url)
+      @config = @api.fetch_config
+      @ignored_domains = @config[:ignoredDomains]
+      @keys_to_hash = @config[:keysToHash]
+      @logger = Supergood::Logger.new(@api, @config, header_options)
 
-      config = api.fetch_config()
-
-      @ignored_domains = config[:ignored_domains]
-      @keys_to_hash = config[:keys_to_hash]
-
-      api.set_error_sink_url(base_url + config[:error_sink_endpoint])
-      api.set_event_sink_url(base_url + config[:event_sink_endpoint])
-      api.set_logger(@logger)
+      @api.set_error_sink_endpoint(@config[:errorSinkEndpoint])
+      @api.set_event_sink_endpoint(@config[:eventSinkEndpoint])
+      @api.set_logger(@logger)
 
       @request_cache = {}
       @response_cache = {}
 
-      set_interval(config[:flush_interval]) { flush_cache }
+      @interval_thread = set_interval(@config[:flushInterval]) { flush_cache }
+      self
     end
 
     def log
@@ -67,12 +71,9 @@ module Supergood
       end
 
       begin
-        log.debug(data)
-        # api.post_events(data)
+        api.post_events(data)
       rescue => e
-        #TODO Add error posting to Supergood
-        puts "Error posting events: #{e}"
-        api.post_errors(e)
+        log.error(data, e, e.message)
       ensure
         @response_cache.clear
         @request_cache.clear if force
@@ -80,10 +81,16 @@ module Supergood
 
     end
 
+    def close(force = true)
+      log.debug('Cleaning up, flushing cache gracefully.')
+      @interval_thread.kill
+      flush_cache(force)
+    end
+
     def set_interval(delay)
       Thread.new do
         loop do
-          sleep delay
+          sleep delay / 1000.0
           yield # call passed block
         end
       end
@@ -101,36 +108,59 @@ module Supergood
       request_id = SecureRandom.uuid
       start_time = Time.now
       response = yield
-    ensure
       if log_event?(http, request)
-        time = ((Time.now - start_time) * 1000)
-        url_payload = parse_url(http, request)
-        @request_cache[request_id] = {
-          request: {
-            id: request_id,
-            method: request.method,
-            url: url_payload[:url],
-            protocol: url_payload[:protocol],
-            domain: url_payload[:domain],
-            path: url_payload[:path],
-            search: url_payload[:search],
-            body: hash_specified_keys(request.body),
-            header: hash_specified_keys(get_header(request)),
-          }
-        }
+        requested_at = Time.now
+        cache_request(request_id, request, parse_url(http, request), requested_at)
         if defined?(response) && response
-          request_payload = @request_cache[request_id]
-          @response_cache[request_id] = {
-            request: request_payload,
-            response: {
-              status: response.code,
-              status_text: response.message,
-              header: hash_specified_keys(get_header(response)),
-              body: hash_specified_keys(response.body),
-            }
-          }
-          @request_cache.delete(request_id)
+          cache_response(request_id, response, requested_at)
         end
+      end
+      ## Need to return the response when you intercept... duh.
+      response
+    end
+
+    def cache_request(request_id, request, url_payload, requested_at)
+      begin
+        request_payload = {
+          id: request_id,
+          headers: get_header(request),
+          method: request.method,
+          url: url_payload[:url],
+          path: url_payload[:path],
+          search: url_payload[:search],
+          body: {}.to_json, # request.body,
+          requestedAt: requested_at.utc.iso8601
+        }
+        @request_cache[request_id] = {
+          request: request_payload
+        }
+      rescue => e
+        log.error({ request: request }, e, e.message)
+      end
+    end
+
+    def cache_response(request_id, response, requested_at)
+      begin
+        responded_at = Time.now
+        duration = (responded_at - requested_at) * 1000
+        request_payload = @request_cache[request_id]
+        response_payload = {
+          headers: get_header(response),
+          status: response.code,
+          statusText: response.message,
+          body: {}.to_json, # response.body,
+          respondedAt: responded_at,
+          duration: duration,
+        }
+        @response_cache[request_id] = request_payload.merge({
+          response: response_payload
+        })
+        @request_cache.delete(request_id)
+      rescue => e
+        log.error(
+          { request: request_payload, response: response_payload },
+          e, e.message
+        )
       end
     end
 
@@ -139,9 +169,15 @@ module Supergood
     end
 
     def ignored?(http, request)
-      url = request_url(http, request)
-      @ignored_domains.any? do |pattern|
-        url =~ pattern
+      url = parse_url(http, request)
+      base_domain = URI.parse(@base_url).hostname
+      if url[:domain] == base_domain
+        return true
+      else
+        @ignored_domains.any? do |ignored_domain|
+          pattern = URI.parse(ignored_domain).hostname
+          url[:domain] =~ pattern
+        end
       end
     end
 

@@ -5,20 +5,27 @@ Dotenv.load
 
 module Supergood
   class Logger < Logger
-    def initialize(post_errors, config, header_options)
+    def initialize(api, config, header_options)
       super(STDOUT)
-      @post_errors = post_errors
+      @api = api
       @config = config
       @header_options = header_options
     end
 
-    def post_errors
-      @post_errors
-    end
-
-    def warn(payload, error, msg)
-      super
-      post_errors({ error: error, message: msg, payload: payload })
+    def error(data, error, msg)
+      super(msg)
+      @api.post_errors(
+        {
+          error: error.backtrace.join('\n'),
+          message: msg,
+          payload: {
+            config: @config,
+            data: data,
+            packageName: 'supergood-rb',
+            packageVersion: Supergood::VERSION
+          }
+        }
+      )
     end
 
     def debug(payload)
