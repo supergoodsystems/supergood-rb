@@ -106,17 +106,19 @@ module Supergood
 
     def intercept(http, request, request_body)
       request_id = SecureRandom.uuid
-      start_time = Time.now
-      response = yield
+      requested_at = Time.now
+
       if log_event?(http, request)
-        requested_at = Time.now
         cache_request(request_id, request, parse_url(http, request), requested_at)
-        if defined?(response) && response
-          cache_response(request_id, response, requested_at)
-        end
       end
-      ## Need to return the response when you intercept... duh.
-      response
+
+      response = yield
+
+      if log_event?(http, request) && defined?(response) && response
+        cache_response(request_id, response, requested_at)
+      end
+
+      return response
     end
 
     def cache_request(request_id, request, url_payload, requested_at)
@@ -135,7 +137,7 @@ module Supergood
           request: request_payload
         }
       rescue => e
-        log.error({ request: request }, e, e.message)
+        log.error({ request: request }, e, ERRORS[:CACHING_REQUEST])
       end
     end
 
@@ -152,14 +154,14 @@ module Supergood
           respondedAt: responded_at,
           duration: duration,
         }
-        @response_cache[request_id] = request_payload.merge({
+        @response_cache[request_id] = hash_values_from_keys(request_payload.merge({
           response: response_payload
-        })
+        }), @keys_to_hash)
         @request_cache.delete(request_id)
       rescue => e
         log.error(
           { request: request_payload, response: response_payload },
-          e, e.message
+          e, ERRORS[:CACHING_RESPONSE]
         )
       end
     end

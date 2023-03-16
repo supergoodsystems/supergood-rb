@@ -14,6 +14,8 @@ ERRORS = {
     'No Client Secret Provided, set SUPERGOOD_CLIENT_SECRET or pass it as an argument'
 };
 
+DEFAULT_SUPERGOOD_BYTE_LIMIT = 500000
+
 # GZIP_START_BYTES = b'\x1f\x8b'
 
 class SupergoodException < StandardError
