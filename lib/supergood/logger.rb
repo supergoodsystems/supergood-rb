@@ -13,7 +13,7 @@ module Supergood
     end
 
     def error(data, error, msg)
-      super(msg)
+      super(error)
       @api.post_errors(
         {
           error: error.backtrace.join('\n'),

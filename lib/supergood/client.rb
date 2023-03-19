@@ -1,10 +1,11 @@
-require 'webmock'
 require 'json'
-require 'net/http'
-require 'uri'
 require 'securerandom'
 require 'dotenv'
 require 'base64'
+require 'uri'
+
+require_relative 'vendors/http'
+require_relative 'vendors/net-http'
 
 Dotenv.load
 
@@ -104,34 +105,33 @@ module Supergood
       @instance ||= Supergood.new
     end
 
-    def intercept(http, request, request_body)
+    def intercept(request)
       request_id = SecureRandom.uuid
       requested_at = Time.now
-
-      if log_event?(http, request)
-        cache_request(request_id, request, parse_url(http, request), requested_at)
+      if !ignored?(request[:domain])
+        cache_request(request_id, requested_at, request)
       end
 
       response = yield
 
-      if log_event?(http, request) && defined?(response) && response
-        cache_response(request_id, response, requested_at)
+      if !ignored?(request[:domain]) && defined?(response)
+        cache_response(request_id, requested_at, response)
       end
 
-      return response
+      return response[:original_response]
     end
 
-    def cache_request(request_id, request, url_payload, requested_at)
+    def cache_request(request_id, requested_at, request)
       begin
         request_payload = {
           id: request_id,
-          headers: get_header(request),
-          method: request.method,
-          url: url_payload[:url],
-          path: url_payload[:path],
-          search: url_payload[:search],
-          body: {}.to_json, # request.body,
-          requestedAt: requested_at.utc.iso8601
+          headers: request[:headers],
+          method: request[:method],
+          url: request[:url],
+          path: request[:path],
+          search: request[:search],
+          body: Supergood::Utils.safe_parse_json(request[:body]),
+          requestedAt: requested_at
         }
         @request_cache[request_id] = {
           request: request_payload
@@ -141,24 +141,25 @@ module Supergood
       end
     end
 
-    def cache_response(request_id, response, requested_at)
+    def cache_response(request_id, requested_at, response)
       begin
         responded_at = Time.now
         duration = (responded_at - requested_at) * 1000
         request_payload = @request_cache[request_id]
         response_payload = {
-          headers: get_header(response),
-          status: response.code,
-          statusText: response.message,
-          body: {}.to_json, # response.body,
+          headers: response[:headers],
+          status: response[:status],
+          statusText: response[:statusText],
+          body: Supergood::Utils.safe_parse_json(response[:body]),
           respondedAt: responded_at,
           duration: duration,
         }
-        @response_cache[request_id] = hash_values_from_keys(request_payload.merge({
+        @response_cache[request_id] = Supergood::Utils.hash_values_from_keys(request_payload.merge({
           response: response_payload
         }), @keys_to_hash)
         @request_cache.delete(request_id)
       rescue => e
+        puts e
         log.error(
           { request: request_payload, response: response_payload },
           e, ERRORS[:CACHING_RESPONSE]
@@ -166,78 +167,16 @@ module Supergood
       end
     end
 
-    def log_event?(http, request)
-      !ignored?(http, request) && (http.started? || webmock?(http, request))
-    end
-
-    def ignored?(http, request)
-      url = parse_url(http, request)
+    def ignored?(domain)
       base_domain = URI.parse(@base_url).hostname
-      if url[:domain] == base_domain
+      if domain == base_domain
         return true
       else
         @ignored_domains.any? do |ignored_domain|
           pattern = URI.parse(ignored_domain).hostname
-          url[:domain] =~ pattern
+          domain =~ pattern
         end
       end
     end
-
-    def webmock?(http, request)
-      return false unless defined?(::WebMock)
-      uri = request_uri_as_string(http, request)
-      method = request.method.downcase.to_sym
-      signature = WebMock::RequestSignature.new(method, uri)
-      ::WebMock.registered_request?(signature)
-    end
-
-    # TODO: Hash keys, move to Utils?
-    def hash_specified_keys(body_or_header)
-      body_or_header
-    end
-
-    def get_header(request_or_response)
-      header = {}
-      request_or_response.each_header do |k,v|
-        header[k] = v
-      end
-      header
-    end
-
-    def parse_url(http, request)
-      url = request_url(http, request)
-      uri = URI.parse(url)
-      {
-        url: url,
-        protocol: uri.scheme,
-        domain: uri.host,
-        path: uri.path,
-        search: uri.query,
-      }
-    end
-
-    def request_url(http, request)
-      URI::DEFAULT_PARSER.unescape("http#{"s" if http.use_ssl?}://#{http.address}:#{http.port}#{request.path}")
-    end
   end
 end
-
-
-# Attach library to Net::HTTP and WebMock
-block = lambda do |a|
-  # raise instance_methods.inspect
-  alias request_without_net_http_logger request
-  def request(request, body = nil, &block)
-    Supergood.intercept(self, request, body) do
-      request_without_net_http_logger(request, body, &block)
-    end
-  end
-end
-
-if defined?(::WebMock)
-  klass = WebMock::HttpLibAdapters::NetHttpAdapter.instance_variable_get("@webMockNetHTTP")
-  # raise klass.instance_methods.inspect
-  klass.class_eval(&block)
-end
-
-Net::HTTP.class_eval(&block)

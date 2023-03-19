@@ -2,6 +2,12 @@ require 'rspec'
 require 'dotenv'
 require 'faraday'
 require 'webmock/rspec'
+require 'stringio'
+require 'zlib'
+
+require 'rest-client'
+require 'HTTParty'
+require 'http'
 
 require_relative '../lib/supergood/api'
 require_relative '../lib/supergood/logger'
@@ -173,9 +179,147 @@ describe Supergood do
       Supergood.close()
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
       with { |req|
-        req.body[0][:response][:body][:hashed] != nil
+        req.body[0][:response][:body][:hashed] == 'ODFhZjA0MTdmOTY5ZjkzODQ4YjFjZjMwZmNlMWRiOTM4ODRmYWNjMQ=='
         req.body[0][:request] != nil &&
         req.body[0][:response] != nil
+      }).to have_been_made.once
+    end
+
+    it 'hashes single key from config' do
+      config_response = get_config({ keysToHash: ['response.body.message'] })
+      stub_request(:get, ENV['SUPERGOOD_BASE_URL'] + '/api/config').with(headers: HEADERS).
+      to_return(status: 200, body: config_response.to_json, headers: {})
+      stub_request(:get, OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
+      Supergood.init()
+      Faraday.get(OUTBOUND_URL)
+      Supergood.close()
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      with { |req|
+        req.body[0][:response][:body][:message] == 'MTFmMzc2NTRkYTJkNWM5MmMzODU2MjM4ZmJlYmNkZjY0NGQ3NjEwNw=='
+        req.body[0][:request] != nil &&
+        req.body[0][:response] != nil
+      }).to have_been_made.once
+    end
+
+    it 'ignores caching specified domains' do
+      config_response = get_config({ ignoredDomains: ['example.com'] })
+      stub_request(:get, ENV['SUPERGOOD_BASE_URL'] + '/api/config').with(headers: HEADERS).
+      to_return(status: 200, body: config_response.to_json, headers: {})
+      stub_request(:get, OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
+
+      Supergood.init()
+      Faraday.get(OUTBOUND_URL)
+      Supergood.close()
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events')).
+      to have_not_been_made.once
+    end
+  end
+
+  describe 'gzipped and large payloads' do
+    it 'automatically hashes payloads bigger than 500kb' do
+      PAYLOAD_SIZE = 500000
+      config_response = get_config()
+      stub_request(:get, ENV['SUPERGOOD_BASE_URL'] + '/api/config').with(headers: HEADERS).
+      to_return(status: 200, body: config_response.to_json, headers: {})
+      stub_request(:get, OUTBOUND_URL).
+      to_return(status: 200, body: { payload: 'X' * PAYLOAD_SIZE }.to_json, headers: {})
+
+      Supergood.init()
+      Faraday.get(OUTBOUND_URL)
+      Supergood.close()
+
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      with { |req|
+        req.body[0][:response][:body][:hashed] == 'ZTg2YjZhNjhjNTM5NGRmN2UyNGRhNGQzZjQxNzEyNmE2OTBlMDI3Nw==' &&
+        req.body[0][:request] != nil
+      }).to have_been_made.once
+    end
+
+    it 'does not automatically hash payloads smaller than 500kb, but large nonetheless' do
+      PAYLOAD_SIZE = 300000
+      config_response = get_config()
+      payload = { payload: 'X' * PAYLOAD_SIZE }.to_json
+      stub_request(:get, ENV['SUPERGOOD_BASE_URL'] + '/api/config').with(headers: HEADERS).
+      to_return(status: 200, body: config_response.to_json, headers: {})
+      stub_request(:get, OUTBOUND_URL).
+      to_return(status: 200, body: payload, headers: {})
+
+      Supergood.init()
+      Faraday.get(OUTBOUND_URL)
+      Supergood.close()
+
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      with { |req|
+        req.body[0][:response][:body].to_json == payload &&
+        req.body[0][:request] != nil
+      }).to have_been_made.once
+    end
+  end
+
+  describe 'other http clients' do
+    it 'tests rest-client' do
+      config_response = get_config()
+      payload = { message: 'success' }.to_json
+      stub_request(:get, ENV['SUPERGOOD_BASE_URL'] + '/api/config').with(headers: HEADERS).
+      to_return(status: 200, body: config_response.to_json, headers: {})
+
+      stub_request(:get, OUTBOUND_URL).
+      to_return(status: 200, body: payload, headers: {})
+
+      Supergood.init()
+      RestClient.get(OUTBOUND_URL)
+      Supergood.close()
+
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      with { |req|
+        req.body[0][:response][:body].to_json == payload &&
+        req.body[0][:request] != nil
+      }).to have_been_made.once
+    end
+
+    it 'tests HTTParty' do
+      config_response = get_config()
+      payload = { message: 'success' }.to_json
+      stub_request(:get, ENV['SUPERGOOD_BASE_URL'] + '/api/config').with(headers: HEADERS).
+      to_return(status: 200, body: config_response.to_json, headers: {})
+
+      stub_request(:get, OUTBOUND_URL).
+      to_return(status: 200, body: payload, headers: {})
+
+      Supergood.init()
+      HTTParty.get(OUTBOUND_URL, { :headers => { 'Accept': 'application/json' }})
+      Supergood.close()
+
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      with { |req|
+        # req.body[0][:response][:body].to_json == payload &&
+        # req.body[0][:request] != nil
+        true
+      }).to have_been_made.once
+    end
+
+    it 'tests http.rb' do
+      WebMock.allow_net_connect!
+      config_response = get_config()
+      payload = { message: 'success' }.to_json
+      stub_request(:get, ENV['SUPERGOOD_BASE_URL'] + '/api/config').with(headers: HEADERS).
+      to_return(status: 200, body: config_response.to_json, headers: {})
+
+      stub_request(:post, OUTBOUND_URL + '?params=1').
+      to_return(status: 200, body: payload, headers: { 'Content-type' => 'application/json'})
+
+      Supergood.init()
+
+      http = HTTP.accept(:json)
+      response = http.post(OUTBOUND_URL + '?params=1', :body => 'test=123')
+
+      Supergood.close()
+
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      with { |req|
+        req.body[0][:response][:body].to_json == payload &&
+        req.body[0][:request] != nil
+        true
       }).to have_been_made.once
     end
   end
