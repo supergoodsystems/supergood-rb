@@ -46,6 +46,7 @@ module Supergood
       @response_cache = {}
 
       @interval_thread = set_interval(@config[:flushInterval]) { flush_cache }
+      log.debug("Using config %s" % @config.inspect)
       self
     end
 
