@@ -28,7 +28,7 @@ module Supergood
 
     def post_events(payload)
       conn = Faraday.new(url: @base_url, headers: @header_options)
-      response = conn.post(@event_sink_endpoint, body = payload, headers = @header_options)
+      response = conn.post(@event_sink_endpoint, body = payload.to_json, headers = @header_options)
       if response.status == 200
         return JSON.parse(response.body, symbolize_names: true)
       elsif response.status == 401
@@ -40,7 +40,7 @@ module Supergood
 
     def post_errors(payload)
       conn = Faraday.new(url: @base_url, headers: @header_options)
-      response = conn.post(@error_sink_endpoint, body = payload, headers = @header_options)
+      response = conn.post(@error_sink_endpoint, body = payload.to_json, headers = @header_options)
       if response.status == 200
         return JSON.parse(response.body, symbolize_names: true)
       else

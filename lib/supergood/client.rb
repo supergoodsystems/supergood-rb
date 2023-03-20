@@ -113,7 +113,6 @@ module Supergood
       end
 
       response = yield
-
       if !ignored?(request[:domain]) && defined?(response)
         cache_response(request_id, requested_at, response)
       end
@@ -129,7 +128,7 @@ module Supergood
           method: request[:method],
           url: request[:url],
           path: request[:path],
-          search: request[:search],
+          search: request[:search] || '',
           body: Supergood::Utils.safe_parse_json(request[:body]),
           requestedAt: requested_at
         }
@@ -152,7 +151,7 @@ module Supergood
           statusText: response[:statusText],
           body: Supergood::Utils.safe_parse_json(response[:body]),
           respondedAt: responded_at,
-          duration: duration,
+          duration: duration.round,
         }
         @response_cache[request_id] = Supergood::Utils.hash_values_from_keys(request_payload.merge({
           response: response_payload
