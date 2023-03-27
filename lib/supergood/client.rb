@@ -4,7 +4,6 @@ require 'dotenv'
 require 'base64'
 require 'uri'
 
-require_relative 'vendors/http'
 require_relative 'vendors/net-http'
 
 Dotenv.load

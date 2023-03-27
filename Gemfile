@@ -16,6 +16,8 @@ gem 'digest'
 gem 'stringio'
 gem 'zlib'
 
-gem 'rest-client'
-gem 'httparty'
-gem 'http'
+group :development, :test do
+  gem 'rest-client'
+  gem 'httparty'
+  gem 'http'
+end
