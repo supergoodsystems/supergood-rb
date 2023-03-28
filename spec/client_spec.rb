@@ -4,6 +4,7 @@ require 'faraday'
 require 'webmock/rspec'
 require 'stringio'
 require 'zlib'
+require 'json'
 
 require 'rest-client'
 require 'HTTParty'
@@ -78,6 +79,7 @@ describe Supergood do
 
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
       with { |req|
+        req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[0][:request] != nil &&
         req.body[0][:response] != nil
       }).
@@ -100,6 +102,7 @@ describe Supergood do
       Supergood.close()
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
       with { |req|
+        req.body = JSON.parse(req.body, symbolize_names: true)
         req.body.length() == http_error_codes.length() &&
         req.body[0][:request] != nil &&
         req.body[0][:response] != nil
@@ -118,6 +121,7 @@ describe Supergood do
       Supergood.close()
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
       with { |req|
+        req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[0][:request] != nil &&
         req.body[0][:request][:method] == 'POST' &&
         req.body[0][:response] != nil
@@ -143,6 +147,7 @@ describe Supergood do
       Supergood.close()
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
       with { |req|
+        req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[0][:request] != nil &&
         req.body[0][:response] == nil
       }).
@@ -162,6 +167,7 @@ describe Supergood do
       Supergood.close()
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/errors').
       with { | req |
+        req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[:error] != nil
       }).to have_been_made.once
       WebMock.reset!
@@ -179,6 +185,7 @@ describe Supergood do
       Supergood.close()
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
       with { |req|
+        req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[0][:response][:body][:hashed] == 'ODFhZjA0MTdmOTY5ZjkzODQ4YjFjZjMwZmNlMWRiOTM4ODRmYWNjMQ=='
         req.body[0][:request] != nil &&
         req.body[0][:response] != nil
@@ -195,6 +202,7 @@ describe Supergood do
       Supergood.close()
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
       with { |req|
+        req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[0][:response][:body][:message] == 'MTFmMzc2NTRkYTJkNWM5MmMzODU2MjM4ZmJlYmNkZjY0NGQ3NjEwNw=='
         req.body[0][:request] != nil &&
         req.body[0][:response] != nil
@@ -230,6 +238,7 @@ describe Supergood do
 
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
       with { |req|
+        req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[0][:response][:body][:hashed] == 'ZTg2YjZhNjhjNTM5NGRmN2UyNGRhNGQzZjQxNzEyNmE2OTBlMDI3Nw==' &&
         req.body[0][:request] != nil
       }).to have_been_made.once
@@ -250,6 +259,7 @@ describe Supergood do
 
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
       with { |req|
+        req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[0][:response][:body].to_json == payload &&
         req.body[0][:request] != nil
       }).to have_been_made.once
@@ -272,6 +282,7 @@ describe Supergood do
 
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
       with { |req|
+        req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[0][:response][:body].to_json == payload &&
         req.body[0][:request] != nil
       }).to have_been_made.once
@@ -292,9 +303,9 @@ describe Supergood do
 
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
       with { |req|
-        # req.body[0][:response][:body].to_json == payload &&
-        # req.body[0][:request] != nil
-        true
+        req.body = JSON.parse(req.body, symbolize_names: true)
+        req.body[0][:response][:body].to_json == payload &&
+        req.body[0][:request] != nil
       }).to have_been_made.once
     end
 
@@ -317,9 +328,9 @@ describe Supergood do
 
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
       with { |req|
+        req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[0][:response][:body].to_json == payload &&
         req.body[0][:request] != nil
-        true
       }).to have_been_made.once
     end
   end
