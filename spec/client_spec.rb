@@ -19,7 +19,7 @@ require_relative '../lib/supergood/constants'
 Dotenv.load
 
 def get_config(additional_keys = {})
-  return {
+  {
     flushInterval: 1000,
     cacheTtl: 0,
     eventSinkEndpoint: '/api/events',
