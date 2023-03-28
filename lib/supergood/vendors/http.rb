@@ -1,7 +1,7 @@
 module Supergood
   module Vendor
     module HTTPrb
-      if defined?(::HTTP)
+      if defined?(HTTP::Client)
         HTTP::Client.class_eval {
           alias original_perform perform
           def perform(original_request_payload, original_options)
