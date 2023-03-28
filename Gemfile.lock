@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    supergood (0.0.10)
+    supergood (0.0.11)
 
 GEM
   remote: https://rubygems.org/
@@ -97,7 +97,7 @@ DEPENDENCIES
   logger
   rest-client
   rspec
-  rudash
+  rudash (~> 4.0, >= 4.0.2)
   securerandom
   stringio
   supergood!
