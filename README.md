@@ -1,6 +1,8 @@
 # Supergood
 
-Monitor the cost and performance of your external API's with two lines of code. Interested in learning more? Reach out to alex@supergood.ai !
+Monitor the cost and performance of your external API's with two lines of code. 
+
+Interested in learning more? Check us out at https://supergood.ai or Reach out to alex@supergood.ai .
 
 Not built on Ruby? We've got a node client, python client and golang client as well.
 
