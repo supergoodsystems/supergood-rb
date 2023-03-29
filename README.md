@@ -18,7 +18,19 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write usage instructions here
+1. Head over to https://dashboard.supergood.ai and make an account, make sure to use your work email address!
+2. Click on the tab labeled "API Keys" and generate a client id and client secret.
+3. Head back to your code and initialize the Supergood client one of two ways:
+
+```
+require 'supergood'
+
+Supergood.init(<client_id>, <client_secret>)
+```
+OR
+
+set `SUPERGOOD_CLIENT_ID` and `SUPERGOOD_CLIENT_SECRET` as environment variables and leave the init function as `Supergood.init` 
+
 
 ## Development
 
@@ -28,5 +40,5 @@ To install this gem onto your local machine, run `bundle exec rake install`. To 
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/supergood.
+Bug reports and pull requests are welcome on GitHub at https://github.com/supergoodsystems/supergood-rb.
 
