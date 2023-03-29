@@ -1,5 +1,9 @@
 # Supergood
 
+Monitor the cost and performance of your external API's with two lines of code. Interested in learning more? Reach out to alex@supergood.ai !
+
+Not built on Ruby? We've got a node client, python client and golang client as well.
+
 ## Installation
 
 Add this line to your application's Gemfile:
