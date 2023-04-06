@@ -26,6 +26,7 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'http', '~> 5.1', '>= 5.1.1'
   s.add_development_dependency 'rspec', '~> 3.12'
   s.add_development_dependency 'webmock', '~> 3.18', '>= 3.18.1'
+  s.add_development_dependency 'faraday', '~> 2.7', '>= 2.7.4'
 
 end
 
