@@ -21,7 +21,7 @@ Gem::Specification.new do |s|
   s.add_dependency 'rudash', '~> 4.0', '>= 4.0.2'
 
   s.add_development_dependency 'rest-client', '~> 2.1'
-  s.add_development_dependency 'httparty', '~> 0.21.0'
+  s.add_development_dependency 'HTTParty', '~> 0.21.0'
   s.add_development_dependency 'http', '~> 5.1', '>= 5.1.1'
   s.add_development_dependency 'rspec', '~> 3.12'
   s.add_development_dependency 'webmock', '~> 3.18', '>= 3.18.1'
