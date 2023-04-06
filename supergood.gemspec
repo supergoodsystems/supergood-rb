@@ -19,7 +19,6 @@ Gem::Specification.new do |s|
   s.required_ruby_version = Gem::Requirement.new(">= 2.3.0")
 
   s.add_dependency 'rudash', '~> 4.0', '>= 4.0.2'
-  s.add_dependency 'faraday', '~> 2.7', '>= 2.7.4'
 
   s.add_development_dependency 'rest-client', '~> 2.1'
   s.add_development_dependency 'httparty', '~> 0.21.0'
