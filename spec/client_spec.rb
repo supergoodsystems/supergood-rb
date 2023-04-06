@@ -7,7 +7,7 @@ require 'zlib'
 require 'json'
 
 require 'rest-client'
-require 'HTTParty'
+require 'httparty'
 require 'http'
 
 require_relative '../lib/supergood/api'
