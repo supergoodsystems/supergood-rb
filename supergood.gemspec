@@ -19,13 +19,13 @@ Gem::Specification.new do |s|
   s.required_ruby_version = Gem::Requirement.new(">= 2.3.0")
 
   s.add_dependency 'rudash', '~> 4.0', '>= 4.0.2'
-  s.add_dependency 'faraday', '~> 2.7', '>= 2.7.4'
 
   s.add_development_dependency 'rest-client', '~> 2.1'
   s.add_development_dependency 'httparty', '~> 0.21.0'
   s.add_development_dependency 'http', '~> 5.1', '>= 5.1.1'
   s.add_development_dependency 'rspec', '~> 3.12'
   s.add_development_dependency 'webmock', '~> 3.18', '>= 3.18.1'
+  s.add_development_dependency 'faraday', '~> 2.7', '>= 2.7.4'
 
 end
 

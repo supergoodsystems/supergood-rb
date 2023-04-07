@@ -1,4 +1,3 @@
-require 'faraday'
 require 'dotenv'
 
 Dotenv.load
@@ -27,21 +26,21 @@ module Supergood
     end
 
     def post_events(payload)
-      conn = Faraday.new(url: @base_url, headers: @header_options)
-      response = conn.post(@event_sink_endpoint, body = payload.to_json, headers = @header_options)
-      if response.status == 200
+      uri = URI(@base_url + @event_sink_endpoint)
+      response = Net::HTTP.post(uri, payload.to_json, @header_options)
+      if response.code == '200'
         return JSON.parse(response.body, symbolize_names: true)
-      elsif response.status == 401
+      elsif response.code == '401'
         raise SupergoodException.new ERRORS[:UNAUTHORIZED]
-      elsif response.status != 200 && response.status != 201
+      elsif response.code != '200' && response.code != '201'
         raise SupergoodException.new ERRORS[:POSTING_EVENTS]
       end
     end
 
     def post_errors(payload)
-      conn = Faraday.new(url: @base_url, headers: @header_options)
-      response = conn.post(@error_sink_endpoint, body = payload.to_json, headers = @header_options)
-      if response.status == 200
+      uri = URI(@base_url + @error_sink_endpoint)
+      response = Net::HTTP.post(uri, payload.to_json, @header_options)
+      if response.code == '200'
         return JSON.parse(response.body, symbolize_names: true)
       else
         @log.warn(ERRORS[:POSTING_ERRORS])
@@ -49,13 +48,18 @@ module Supergood
     end
 
     def fetch_config
-      conn = Faraday.new(url: @base_url, headers: @header_options)
-      response = conn.get('/api/config')
-      if response.status == 200
+      uri = URI(@base_url + '/api/config')
+      request = Net::HTTP::Get.new(uri)
+      response = Net::HTTP.start(uri.hostname, uri.port) do |http|
+        request['Content-Type'] = 'application/json'
+        request['Authorization'] = @header_options['Authorization']
+        http.request(request)
+      end
+      if response.code == '200'
         return JSON.parse(response.body, symbolize_names: true)
-      elsif response.status == 401
+      elsif response.code == '401'
         raise SupergoodException.new ERRORS[:UNAUTHORIZED]
-      elsif response.status != 200 && response.status != 201
+      elsif response.code != '200' && response.code != '201'
         raise SupergoodException.new ERRORS[:FETCHING_CONFIG]
       end
     end
