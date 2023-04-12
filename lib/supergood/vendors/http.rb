@@ -51,7 +51,7 @@ module Supergood
       end
 
       def self.existing_patch?
-        HTTP::Client.method_defined?(:original_perform)
+        defined?(HTTP::Client) && HTTP::Client.method_defined?(:original_perform)
       end
 
     end

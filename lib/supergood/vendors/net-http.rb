@@ -61,8 +61,8 @@ module Supergood
       end
 
       def self.existing_patch?
-        WebMock::HttpLibAdapters::NetHttpAdapter.instance_variable_get("@webMockNetHTTP").method_defined?(:original_request_method) ||
-          Net::HTTP.method_defined?(:original_request_method)
+        (defined?(Net::HTTP) && Net::HTTP.method_defined?(:original_request_method)) ||
+        (defined?(::Webmock) && WebMock::HttpLibAdapters::NetHttpAdapter.instance_variable_get("@webMockNetHTTP").method_defined?(:original_request_method))
       end
 
     end
