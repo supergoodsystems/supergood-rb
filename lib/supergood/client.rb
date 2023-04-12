@@ -40,12 +40,11 @@ module Supergood
 
       @interval_thread = set_interval(@config[:flushInterval]) { flush_cache }
 
-
       @http_clients = [
         Supergood::Vendor::NetHTTP,
         Supergood::Vendor::HTTPrb
       ]
-      # unpatch_all()
+
       patch_all()
       self
     end
