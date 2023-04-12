@@ -68,5 +68,9 @@ module Supergood
     def self.request_url(http, request)
       URI::DEFAULT_PARSER.unescape("http#{"s" if http.use_ssl?}://#{http.address}#{request.path}")
     end
+
+    def self.make_config(config)
+      return DEFAULT_CONFIG.merge(config)
+    end
   end
 end

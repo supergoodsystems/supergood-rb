@@ -12,11 +12,10 @@ Dotenv.load
 module Supergood
 
   DEFAULT_SUPERGOOD_BASE_URL = 'https://dashboard.supergood.ai'
-
   class << self
-    def init(supergood_client_id=nil, supergood_client_secret=nil, base_url=nil)
-      supergood_client_id = supergood_client_id || ENV['SUPERGOOD_CLIENT_ID']
-      supergood_client_secret = supergood_client_secret || ENV['SUPERGOOD_CLIENT_SECRET']
+    def init(config={})
+      supergood_client_id = config[:client_id] || ENV['SUPERGOOD_CLIENT_ID']
+      supergood_client_secret = config[:client_secret] || ENV['SUPERGOOD_CLIENT_SECRET']
 
       if !supergood_client_id
         raise SupergoodException.new ERRORS[:NO_CLIENT_ID]
@@ -26,27 +25,28 @@ module Supergood
         raise SupergoodException.new ERRORS[:NO_CLIENT_SECRET]
       end
 
-      @base_url = base_url || ENV['SUPERGOOD_BASE_URL'] || DEFAULT_SUPERGOOD_BASE_URL
-      header_options = {
-        'Content-Type' => 'application/json',
-        'Authorization' => 'Basic ' + Base64.encode64(supergood_client_id + ':' + supergood_client_secret).gsub(/\n/, '')
-      }
+      @base_url = ENV['SUPERGOOD_BASE_URL'] || DEFAULT_SUPERGOOD_BASE_URL
+      @api = Supergood::Api.new(supergood_client_id, supergood_client_secret, @base_url)
+      @config = Supergood::Utils.make_config(config)
 
-      @api = Supergood::Api.new(header_options, @base_url)
-      @config = @api.fetch_config
       @ignored_domains = @config[:ignoredDomains]
       @keys_to_hash = @config[:keysToHash]
-      @logger = Supergood::Logger.new(@api, @config, header_options)
+      @logger = Supergood::Logger.new(@api, @config, @api.header_options)
 
-      @api.set_error_sink_endpoint(@config[:errorSinkEndpoint])
-      @api.set_event_sink_endpoint(@config[:eventSinkEndpoint])
       @api.set_logger(@logger)
 
       @request_cache = {}
       @response_cache = {}
 
       @interval_thread = set_interval(@config[:flushInterval]) { flush_cache }
-      log.debug("Using config %s" % @config.inspect)
+
+
+      @http_clients = [
+        Supergood::Vendor::NetHTTP,
+        Supergood::Vendor::HTTPrb
+      ]
+      # unpatch_all()
+      patch_all()
       self
     end
 
@@ -76,6 +76,7 @@ module Supergood
         api.post_events(data)
       rescue => e
         log.error(data, e, e.message)
+        cleanup()
       ensure
         @response_cache.clear
         @request_cache.clear if force
@@ -83,10 +84,27 @@ module Supergood
 
     end
 
+    def cleanup()
+      @interval_thread.kill
+      unpatch_all()
+    end
+
     def close(force = true)
       log.debug('Cleaning up, flushing cache gracefully.')
-      @interval_thread.kill
       flush_cache(force)
+      cleanup()
+    end
+
+    def patch_all
+      @http_clients.each do |client|
+        client.patch
+      end
+    end
+
+    def unpatch_all
+      @http_clients.each do |client|
+        client.unpatch
+      end
     end
 
     def set_interval(delay)
@@ -96,14 +114,6 @@ module Supergood
           yield # call passed block
         end
       end
-    end
-
-    def self.intercept(*args, &block)
-      instance.intercept(*args, &block)
-    end
-
-    def self.instance
-      @instance ||= Supergood.new
     end
 
     def intercept(request)
@@ -138,6 +148,7 @@ module Supergood
         }
       rescue => e
         log.error({ request: request }, e, ERRORS[:CACHING_REQUEST])
+        cleanup()
       end
     end
 
@@ -159,11 +170,11 @@ module Supergood
         }), @keys_to_hash)
         @request_cache.delete(request_id)
       rescue => e
-        puts e
         log.error(
           { request: request_payload, response: response_payload },
           e, ERRORS[:CACHING_RESPONSE]
         )
+        cleanup()
       end
     end
 

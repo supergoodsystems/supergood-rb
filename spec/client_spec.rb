@@ -18,17 +18,6 @@ require_relative '../lib/supergood/constants'
 
 Dotenv.load
 
-def get_config(additional_keys = {})
-  {
-    flushInterval: 1000,
-    cacheTtl: 0,
-    eventSinkEndpoint: '/api/events',
-    errorSinkEndpoint: '/api/errors',
-    keysToHash: [],
-    ignoredDomains: []
-  }.merge(additional_keys)
-end
-
 def get_request_format(match_keys = {})
   {
     id: /.*/,
@@ -66,12 +55,8 @@ OUTBOUND_URL = 'https://www.example.com'
 describe Supergood do
   describe 'successful requests' do
     it 'captures all outgoing 200 http requests' do
-      config_response = get_config()
       stub_request(:get, OUTBOUND_URL).
       to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
-
-      stub_request(:get, ENV['SUPERGOOD_BASE_URL'] + '/api/config').with(headers: HEADERS).
-      to_return(status: 200, body: config_response.to_json, headers: {})
 
       Supergood.init()
       Faraday.get(OUTBOUND_URL)
@@ -87,9 +72,6 @@ describe Supergood do
     end
 
     it 'captures non-success status and errors' do
-      config_response = get_config()
-      stub_request(:get, ENV['SUPERGOOD_BASE_URL'] + '/api/config').with(headers: HEADERS).
-      to_return(status: 200, body: config_response.to_json, headers: {})
       http_error_codes = [400, 401, 403, 404, 500, 501, 502, 503, 504]
       Supergood.init()
 
@@ -111,10 +93,8 @@ describe Supergood do
     end
 
     it 'post requests successfully' do
-      config_response = get_config()
       stub_request(:post, OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
-      stub_request(:get, ENV['SUPERGOOD_BASE_URL'] + '/api/config').with(headers: HEADERS).
-      to_return(status: 200, body: config_response.to_json, headers: {})
+
       Supergood.init()
       conn = Faraday.new(url: OUTBOUND_URL)
       response = conn.post('/')
@@ -130,12 +110,88 @@ describe Supergood do
     end
   end
 
+  describe 'local development' do
+    it 'does not post requests externally when keys are local' do
+      stub_request(:get, OUTBOUND_URL).
+      to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
+      config = { client_id: 'local-client-id', client_secret: 'local-client-secret' }
+
+      Supergood.init(config)
+      Faraday.get(OUTBOUND_URL)
+      Supergood.close()
+
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events')).
+      to have_not_been_made
+    end
+  end
+
+  describe 'initialization' do
+    it 'does not install multiple interceptors' do
+      stub_request(:get, OUTBOUND_URL).
+      to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
+
+      Supergood.init()
+      Supergood.init()
+      Supergood.init()
+      Faraday.get(OUTBOUND_URL)
+      Supergood.close()
+
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      with { |req|
+        req.body = JSON.parse(req.body, symbolize_names: true)
+        req.body[0][:request] != nil &&
+        req.body[0][:response] != nil
+      }).
+      to have_been_made.once
+    end
+
+    it 'does not fail when close is called multiple times' do
+      stub_request(:get, OUTBOUND_URL).
+      to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
+
+      Supergood.init()
+      Faraday.get(OUTBOUND_URL)
+      Supergood.close()
+      Supergood.close()
+      Supergood.close()
+
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      with { |req|
+        req.body = JSON.parse(req.body, symbolize_names: true)
+        req.body[0][:request] != nil &&
+        req.body[0][:response] != nil
+      }).
+      to have_been_made.once
+    end
+  end
+
+
+  describe 'teardown' do
+    it 'closes the client and does not intercept subsequent requests' do
+      stub_request(:get, OUTBOUND_URL).
+      to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
+
+      Supergood.init()
+      Faraday.get(OUTBOUND_URL)
+      Supergood.close()
+
+      Faraday.get(OUTBOUND_URL)
+      Faraday.get(OUTBOUND_URL)
+      Faraday.get(OUTBOUND_URL)
+
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      with { |req|
+        req.body = JSON.parse(req.body, symbolize_names: true)
+        req.body[0][:request] != nil &&
+        req.body[0][:response] != nil
+      }).
+      to have_been_made.once
+    end
+  end
+
   describe 'error requests' do
     it 'reports timeout properly' do
-      config_response = get_config()
       stub_request(:get, OUTBOUND_URL).to_timeout
-      stub_request(:get, ENV['SUPERGOOD_BASE_URL'] + '/api/config').with(headers: HEADERS).
-      to_return(status: 200, body: config_response.to_json, headers: {})
       Supergood.init()
 
       begin
@@ -156,12 +212,11 @@ describe Supergood do
 
     it 'reports errors properly' do
       WebMock.reset!
-      config_response = get_config()
+
       stub_request(:get, OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
       stub_request(:post,  ENV['SUPERGOOD_BASE_URL'] + '/api/errors').to_return(status: 200, body: { message: 'Success' }.to_json, headers: {})
       stub_request(:post,  ENV['SUPERGOOD_BASE_URL'] + '/api/events').to_raise(SupergoodException.new ERRORS[:POSTING_EVENTS])
-      stub_request(:get, ENV['SUPERGOOD_BASE_URL'] + '/api/config').with(headers: HEADERS).
-      to_return(status: 200, body: config_response.to_json, headers: {})
+
       Supergood.init()
       Faraday.get(OUTBOUND_URL)
       Supergood.close()
@@ -176,11 +231,8 @@ describe Supergood do
 
   describe 'config specifications' do
     it 'hashes the entire body from the config' do
-      config_response = get_config({ keysToHash: ['response.body'] })
-      stub_request(:get, ENV['SUPERGOOD_BASE_URL'] + '/api/config').with(headers: HEADERS).
-      to_return(status: 200, body: config_response.to_json, headers: {})
       stub_request(:get, OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
-      Supergood.init()
+      Supergood.init(config={ keysToHash: ['response.body']})
       Faraday.get(OUTBOUND_URL)
       Supergood.close()
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
@@ -193,11 +245,8 @@ describe Supergood do
     end
 
     it 'hashes single key from config' do
-      config_response = get_config({ keysToHash: ['response.body.message'] })
-      stub_request(:get, ENV['SUPERGOOD_BASE_URL'] + '/api/config').with(headers: HEADERS).
-      to_return(status: 200, body: config_response.to_json, headers: {})
       stub_request(:get, OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
-      Supergood.init()
+      Supergood.init(config={ keysToHash: ['response.body.message'] })
       Faraday.get(OUTBOUND_URL)
       Supergood.close()
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
@@ -210,12 +259,8 @@ describe Supergood do
     end
 
     it 'ignores caching specified domains' do
-      config_response = get_config({ ignoredDomains: ['example.com'] })
-      stub_request(:get, ENV['SUPERGOOD_BASE_URL'] + '/api/config').with(headers: HEADERS).
-      to_return(status: 200, body: config_response.to_json, headers: {})
       stub_request(:get, OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
-
-      Supergood.init()
+      Supergood.init(config={ ignoredDomains: ['example.com'] })
       Faraday.get(OUTBOUND_URL)
       Supergood.close()
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events')).
@@ -225,12 +270,9 @@ describe Supergood do
 
   describe 'gzipped and large payloads' do
     it 'automatically hashes payloads bigger than 500kb' do
-      PAYLOAD_SIZE = 500000
-      config_response = get_config()
-      stub_request(:get, ENV['SUPERGOOD_BASE_URL'] + '/api/config').with(headers: HEADERS).
-      to_return(status: 200, body: config_response.to_json, headers: {})
+      PAYLOAD_SIZE_500kb = 500000
       stub_request(:get, OUTBOUND_URL).
-      to_return(status: 200, body: { payload: 'X' * PAYLOAD_SIZE }.to_json, headers: {})
+      to_return(status: 200, body: { payload: 'X' * PAYLOAD_SIZE_500kb }.to_json, headers: {})
 
       Supergood.init()
       Faraday.get(OUTBOUND_URL)
@@ -245,11 +287,8 @@ describe Supergood do
     end
 
     it 'does not automatically hash payloads smaller than 500kb, but large nonetheless' do
-      PAYLOAD_SIZE = 300000
-      config_response = get_config()
-      payload = { payload: 'X' * PAYLOAD_SIZE }.to_json
-      stub_request(:get, ENV['SUPERGOOD_BASE_URL'] + '/api/config').with(headers: HEADERS).
-      to_return(status: 200, body: config_response.to_json, headers: {})
+      PAYLOAD_SIZE_300kb = 300000
+      payload = { payload: 'X' * PAYLOAD_SIZE_300kb }.to_json
       stub_request(:get, OUTBOUND_URL).
       to_return(status: 200, body: payload, headers: {})
 
@@ -268,11 +307,7 @@ describe Supergood do
 
   describe 'other http clients' do
     it 'tests rest-client' do
-      config_response = get_config()
       payload = { message: 'success' }.to_json
-      stub_request(:get, ENV['SUPERGOOD_BASE_URL'] + '/api/config').with(headers: HEADERS).
-      to_return(status: 200, body: config_response.to_json, headers: {})
-
       stub_request(:get, OUTBOUND_URL).
       to_return(status: 200, body: payload, headers: {})
 
@@ -289,11 +324,7 @@ describe Supergood do
     end
 
     it 'tests HTTParty' do
-      config_response = get_config()
       payload = { message: 'success' }.to_json
-      stub_request(:get, ENV['SUPERGOOD_BASE_URL'] + '/api/config').with(headers: HEADERS).
-      to_return(status: 200, body: config_response.to_json, headers: {})
-
       stub_request(:get, OUTBOUND_URL).
       to_return(status: 200, body: payload, headers: {})
 
@@ -311,11 +342,7 @@ describe Supergood do
 
     it 'tests http.rb' do
       WebMock.allow_net_connect!
-      config_response = get_config()
       payload = { message: 'success' }.to_json
-      stub_request(:get, ENV['SUPERGOOD_BASE_URL'] + '/api/config').with(headers: HEADERS).
-      to_return(status: 200, body: config_response.to_json, headers: {})
-
       stub_request(:post, OUTBOUND_URL + '?params=1').
       to_return(status: 200, body: payload, headers: { 'Content-type' => 'application/json'})
 
