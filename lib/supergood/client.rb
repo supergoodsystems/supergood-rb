@@ -75,7 +75,6 @@ module Supergood
         api.post_events(data)
       rescue => e
         log.error(data, e, e.message)
-        cleanup()
       ensure
         @response_cache.clear
         @request_cache.clear if force
@@ -147,7 +146,6 @@ module Supergood
         }
       rescue => e
         log.error({ request: request }, e, ERRORS[:CACHING_REQUEST])
-        cleanup()
       end
     end
 
@@ -173,7 +171,6 @@ module Supergood
           { request: request_payload, response: response_payload },
           e, ERRORS[:CACHING_RESPONSE]
         )
-        cleanup()
       end
     end
 
