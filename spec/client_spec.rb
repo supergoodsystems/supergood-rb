@@ -264,8 +264,43 @@ describe Supergood do
       Faraday.get(OUTBOUND_URL)
       Supergood.close()
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events')).
-      to have_not_been_made.once
+      to have_not_been_made
     end
+
+    it 'only allows allowed domains, ignores ignored' do
+      SECOND_OUTBOUND_URL = 'https://www.example-2.com/'
+      stub_request(:get, OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
+      stub_request(:get, SECOND_OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
+
+      Supergood.init(config={ allowedDomains: ['example-2.com'] })
+      Faraday.get(OUTBOUND_URL)
+      Faraday.get(SECOND_OUTBOUND_URL)
+      Supergood.close()
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      with { |req|
+        req.body = JSON.parse(req.body, symbolize_names: true)
+        req.body.length == 1 &&
+        req.body[0][:request][:url] == SECOND_OUTBOUND_URL
+      }).to have_been_made.once
+    end
+
+    it 'allowed domains override ignored' do
+      SECOND_OUTBOUND_URL = 'https://www.example-2.com/'
+      stub_request(:get, OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
+      stub_request(:get, SECOND_OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
+
+      Supergood.init(config={ allowedDomains: ['example-2.com'], ignoredDomains: ['example-2.com'] })
+      Faraday.get(OUTBOUND_URL)
+      Faraday.get(SECOND_OUTBOUND_URL)
+      Supergood.close()
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      with { |req|
+        req.body = JSON.parse(req.body, symbolize_names: true)
+        req.body.length == 1 &&
+        req.body[0][:request][:url] == SECOND_OUTBOUND_URL
+      }).to have_been_made.once
+    end
+
   end
 
   describe 'gzipped and large payloads' do

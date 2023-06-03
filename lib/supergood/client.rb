@@ -29,6 +29,7 @@ module Supergood
       @api = Supergood::Api.new(supergood_client_id, supergood_client_secret, @base_url)
       @config = Supergood::Utils.make_config(config)
 
+      @allowed_domains = @config[:allowedDomains]
       @ignored_domains = @config[:ignoredDomains]
       @keys_to_hash = @config[:keysToHash]
       @logger = Supergood::Logger.new(@api, @config, @api.header_options)
@@ -59,6 +60,7 @@ module Supergood
 
     def flush_cache(force = false)
       # If there's notthing in the response cache, and we're not forcing a flush, then return
+
       if @response_cache.empty? && !force
         return
       elsif force && @response_cache.empty? && @request_cache.empty?
@@ -178,10 +180,13 @@ module Supergood
       base_domain = URI.parse(@base_url).hostname
       if domain == base_domain
         return true
+      elsif @allowed_domains.any?
+        @allowed_domains.all? do |allowed_domain|
+          !domain.include? allowed_domain
+        end
       else
         @ignored_domains.any? do |ignored_domain|
-          pattern = URI.parse(ignored_domain).hostname
-          domain =~ pattern
+          domain.include? ignored_domain
         end
       end
     end
