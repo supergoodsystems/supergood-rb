@@ -21,7 +21,8 @@ DEFAULT_SUPERGOOD_BYTE_LIMIT = 500000
 DEFAULT_CONFIG = {
   keysToHash: [],
   flushInterval: 1000,
-  ignoredDomains: []
+  ignoredDomains: [],
+  allowedDomains: [],
 }
 
 # GZIP_START_BYTES = b'\x1f\x8b'
