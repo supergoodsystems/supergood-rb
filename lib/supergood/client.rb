@@ -11,7 +11,7 @@ Dotenv.load
 
 module Supergood
 
-  DEFAULT_SUPERGOOD_BASE_URL = 'https://dashboard.supergood.ai'
+  DEFAULT_SUPERGOOD_BASE_URL = 'https://api.supergood.ai'
   class << self
     def init(config={})
       supergood_client_id = config[:client_id] || ENV['SUPERGOOD_CLIENT_ID']
@@ -120,11 +120,13 @@ module Supergood
       request_id = SecureRandom.uuid
       requested_at = Time.now
       if !ignored?(request[:domain])
+        puts "Caching Request"
         cache_request(request_id, requested_at, request)
       end
 
       response = yield
       if !ignored?(request[:domain]) && defined?(response)
+        puts "Caching Response"
         cache_response(request_id, requested_at, response)
       end
 

@@ -29,7 +29,7 @@ module Supergood
       if @local_only
         @log.debug(payload)
       else
-        uri = URI(@base_url + '/api/events')
+        uri = URI(@base_url + '/events')
         response = Net::HTTP.post(uri, payload.to_json, @header_options)
         if response.code == '200'
           return JSON.parse(response.body, symbolize_names: true)
@@ -45,7 +45,7 @@ module Supergood
       if @local_only
         @log.debug(payload)
       else
-        uri = URI(@base_url + '/api/errors')
+        uri = URI(@base_url + '/errors')
         response = Net::HTTP.post(uri, payload.to_json, @header_options)
         if response.code == '200'
           return JSON.parse(response.body, symbolize_names: true)

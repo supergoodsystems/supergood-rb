@@ -62,7 +62,7 @@ describe Supergood do
       Faraday.get(OUTBOUND_URL)
       Supergood.close()
 
-      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
         req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[0][:request] != nil &&
@@ -82,7 +82,7 @@ describe Supergood do
       end
 
       Supergood.close()
-      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
         req.body = JSON.parse(req.body, symbolize_names: true)
         req.body.length() == http_error_codes.length() &&
@@ -99,7 +99,7 @@ describe Supergood do
       conn = Faraday.new(url: OUTBOUND_URL)
       response = conn.post('/')
       Supergood.close()
-      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
         req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[0][:request] != nil &&
@@ -120,7 +120,7 @@ describe Supergood do
       Faraday.get(OUTBOUND_URL)
       Supergood.close()
 
-      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events')).
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events')).
       to have_not_been_made
     end
   end
@@ -136,7 +136,7 @@ describe Supergood do
       Faraday.get(OUTBOUND_URL)
       Supergood.close()
 
-      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
         req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[0][:request] != nil &&
@@ -155,7 +155,7 @@ describe Supergood do
       Supergood.close()
       Supergood.close()
 
-      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
         req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[0][:request] != nil &&
@@ -179,7 +179,7 @@ describe Supergood do
       Faraday.get(OUTBOUND_URL)
       Faraday.get(OUTBOUND_URL)
 
-      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
         req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[0][:request] != nil &&
@@ -201,7 +201,7 @@ describe Supergood do
       end
 
       Supergood.close()
-      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
         req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[0][:request] != nil &&
@@ -214,13 +214,13 @@ describe Supergood do
       WebMock.reset!
 
       stub_request(:get, OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
-      stub_request(:post,  ENV['SUPERGOOD_BASE_URL'] + '/api/errors').to_return(status: 200, body: { message: 'Success' }.to_json, headers: {})
-      stub_request(:post,  ENV['SUPERGOOD_BASE_URL'] + '/api/events').to_raise(SupergoodException.new ERRORS[:POSTING_EVENTS])
+      stub_request(:post,  ENV['SUPERGOOD_BASE_URL'] + '/errors').to_return(status: 200, body: { message: 'Success' }.to_json, headers: {})
+      stub_request(:post,  ENV['SUPERGOOD_BASE_URL'] + '/events').to_raise(SupergoodException.new ERRORS[:POSTING_EVENTS])
 
       Supergood.init()
       Faraday.get(OUTBOUND_URL)
       Supergood.close()
-      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/errors').
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/errors').
       with { | req |
         req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[:error] != nil
@@ -235,7 +235,7 @@ describe Supergood do
       Supergood.init(config={ keysToHash: ['response.body']})
       Faraday.get(OUTBOUND_URL)
       Supergood.close()
-      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
         req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[0][:response][:body][:hashed] == 'ODFhZjA0MTdmOTY5ZjkzODQ4YjFjZjMwZmNlMWRiOTM4ODRmYWNjMQ=='
@@ -249,7 +249,7 @@ describe Supergood do
       Supergood.init(config={ keysToHash: ['response.body.message'] })
       Faraday.get(OUTBOUND_URL)
       Supergood.close()
-      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
         req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[0][:response][:body][:message] == 'MTFmMzc2NTRkYTJkNWM5MmMzODU2MjM4ZmJlYmNkZjY0NGQ3NjEwNw=='
@@ -263,7 +263,7 @@ describe Supergood do
       Supergood.init(config={ ignoredDomains: ['example.com'] })
       Faraday.get(OUTBOUND_URL)
       Supergood.close()
-      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events')).
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events')).
       to have_not_been_made
     end
 
@@ -276,7 +276,7 @@ describe Supergood do
       Faraday.get(OUTBOUND_URL)
       Faraday.get(SECOND_OUTBOUND_URL)
       Supergood.close()
-      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
         req.body = JSON.parse(req.body, symbolize_names: true)
         req.body.length == 1 &&
@@ -293,7 +293,7 @@ describe Supergood do
       Faraday.get(OUTBOUND_URL)
       Faraday.get(SECOND_OUTBOUND_URL)
       Supergood.close()
-      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
         req.body = JSON.parse(req.body, symbolize_names: true)
         req.body.length == 1 &&
@@ -313,7 +313,7 @@ describe Supergood do
       Faraday.get(OUTBOUND_URL)
       Supergood.close()
 
-      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
         req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[0][:response][:body][:hashed] == 'ZTg2YjZhNjhjNTM5NGRmN2UyNGRhNGQzZjQxNzEyNmE2OTBlMDI3Nw==' &&
@@ -331,7 +331,7 @@ describe Supergood do
       Faraday.get(OUTBOUND_URL)
       Supergood.close()
 
-      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
         req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[0][:response][:body].to_json == payload &&
@@ -350,7 +350,7 @@ describe Supergood do
       RestClient.get(OUTBOUND_URL)
       Supergood.close()
 
-      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
         req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[0][:response][:body].to_json == payload &&
@@ -367,7 +367,7 @@ describe Supergood do
       HTTParty.get(OUTBOUND_URL, { :headers => { 'Accept': 'application/json' }})
       Supergood.close()
 
-      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
         req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[0][:response][:body].to_json == payload &&
@@ -388,7 +388,7 @@ describe Supergood do
 
       Supergood.close()
 
-      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/api/events').
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
         req.body = JSON.parse(req.body, symbolize_names: true)
         req.body[0][:response][:body].to_json == payload &&
