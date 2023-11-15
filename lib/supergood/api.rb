@@ -8,7 +8,9 @@ module Supergood
       @base_url = base_url
       @header_options = {
         'Content-Type' => 'application/json',
-        'Authorization' => 'Basic ' + Base64.encode64(client_id + ':' + client_secret).gsub(/\n/, '')
+        'Authorization' => 'Basic ' + Base64.encode64(client_id + ':' + client_secret).gsub(/\n/, ''),
+        'supergood-api' => 'supergood-rb',
+        'supergood-api-version' => VERSION
       }
       @local_only = client_id == LOCAL_CLIENT_ID && client_secret == LOCAL_CLIENT_SECRET
     end
