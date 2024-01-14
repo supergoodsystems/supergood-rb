@@ -5,6 +5,7 @@ require 'webmock/rspec'
 require 'stringio'
 require 'zlib'
 require 'json'
+require 'uri'
 
 require 'rest-client'
 require 'httparty'
@@ -42,6 +43,10 @@ def get_response_format(match_keys = {})
   }.match(match_keys)
 end
 
+def stub_remote_config(config = [], status = 200)
+  stub_request(:get, ENV['SUPERGOOD_BASE_URL'] + '/config').to_return(status: status, body: config.to_json, headers: {})
+end
+
 HEADERS = {
   'Accept' => '*/*',
   'Accept-Encoding'=>'gzip;q=1.0,deflate;q=0.6,identity;q=0.3',
@@ -55,9 +60,8 @@ OUTBOUND_URL = 'https://www.example.com'
 describe Supergood do
   describe 'successful requests' do
     it 'captures all outgoing 200 http requests' do
-      stub_request(:get, OUTBOUND_URL).
-      to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
-
+      stub_request(:get, OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
+      stub_remote_config
       Supergood.init()
       Faraday.get(OUTBOUND_URL)
       Supergood.close()
@@ -73,6 +77,7 @@ describe Supergood do
 
     it 'captures non-success status and errors' do
       http_error_codes = [400, 401, 403, 404, 500, 501, 502, 503, 504]
+      stub_remote_config
       Supergood.init()
 
       for http_error_code in http_error_codes do
@@ -94,7 +99,7 @@ describe Supergood do
 
     it 'post requests successfully' do
       stub_request(:post, OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
-
+      stub_remote_config
       Supergood.init()
       conn = Faraday.new(url: OUTBOUND_URL)
       response = conn.post('/')
@@ -112,8 +117,8 @@ describe Supergood do
 
   describe 'local development' do
     it 'does not post requests externally when keys are local' do
-      stub_request(:get, OUTBOUND_URL).
-      to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
+      stub_remote_config
+      stub_request(:get, OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
       config = { client_id: 'local-client-id', client_secret: 'local-client-secret' }
 
       Supergood.init(config)
@@ -127,14 +132,14 @@ describe Supergood do
 
   describe 'initialization' do
     it 'does not install multiple interceptors' do
-      stub_request(:get, OUTBOUND_URL).
-      to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
+      stub_request(:get, OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
+      stub_remote_config
 
-      Supergood.init()
-      Supergood.init()
-      Supergood.init()
+      Supergood.init
+      Supergood.init
+      Supergood.init
       Faraday.get(OUTBOUND_URL)
-      Supergood.close()
+      Supergood.close
 
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
@@ -146,6 +151,7 @@ describe Supergood do
     end
 
     it 'does not fail when close is called multiple times' do
+      stub_remote_config
       stub_request(:get, OUTBOUND_URL).
       to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
 
@@ -165,9 +171,9 @@ describe Supergood do
     end
   end
 
-
   describe 'teardown' do
     it 'closes the client and does not intercept subsequent requests' do
+      stub_remote_config
       stub_request(:get, OUTBOUND_URL).
       to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
 
@@ -191,6 +197,7 @@ describe Supergood do
 
   describe 'error requests' do
     it 'reports timeout properly' do
+      stub_remote_config
       stub_request(:get, OUTBOUND_URL).to_timeout
       Supergood.init()
 
@@ -212,7 +219,7 @@ describe Supergood do
 
     it 'reports errors properly' do
       WebMock.reset!
-
+      stub_remote_config
       stub_request(:get, OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
       stub_request(:post,  ENV['SUPERGOOD_BASE_URL'] + '/errors').to_return(status: 200, body: { message: 'Success' }.to_json, headers: {})
       stub_request(:post,  ENV['SUPERGOOD_BASE_URL'] + '/events').to_raise(SupergoodException.new ERRORS[:POSTING_EVENTS])
@@ -230,35 +237,8 @@ describe Supergood do
   end
 
   describe 'config specifications' do
-    it 'hashes the entire body from the config' do
-      stub_request(:get, OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
-      Supergood.init(config={ keysToHash: ['response.body']})
-      Faraday.get(OUTBOUND_URL)
-      Supergood.close()
-      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
-      with { |req|
-        req.body = JSON.parse(req.body, symbolize_names: true)
-        req.body[0][:response][:body][:hashed] == 'ODFhZjA0MTdmOTY5ZjkzODQ4YjFjZjMwZmNlMWRiOTM4ODRmYWNjMQ=='
-        req.body[0][:request] != nil &&
-        req.body[0][:response] != nil
-      }).to have_been_made.once
-    end
-
-    it 'hashes single key from config' do
-      stub_request(:get, OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
-      Supergood.init(config={ keysToHash: ['response.body.message'] })
-      Faraday.get(OUTBOUND_URL)
-      Supergood.close()
-      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
-      with { |req|
-        req.body = JSON.parse(req.body, symbolize_names: true)
-        req.body[0][:response][:body][:message] == 'MTFmMzc2NTRkYTJkNWM5MmMzODU2MjM4ZmJlYmNkZjY0NGQ3NjEwNw=='
-        req.body[0][:request] != nil &&
-        req.body[0][:response] != nil
-      }).to have_been_made.once
-    end
-
     it 'ignores caching specified domains' do
+      stub_remote_config
       stub_request(:get, OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
       Supergood.init(config={ ignoredDomains: ['example.com'] })
       Faraday.get(OUTBOUND_URL)
@@ -268,6 +248,7 @@ describe Supergood do
     end
 
     it 'only allows allowed domains, ignores ignored' do
+      stub_remote_config
       SECOND_OUTBOUND_URL = 'https://www.example-2.com/'
       stub_request(:get, OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
       stub_request(:get, SECOND_OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
@@ -285,6 +266,7 @@ describe Supergood do
     end
 
     it 'allowed domains override ignored' do
+      stub_remote_config
       SECOND_OUTBOUND_URL = 'https://www.example-2.com/'
       stub_request(:get, OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
       stub_request(:get, SECOND_OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
@@ -304,32 +286,16 @@ describe Supergood do
   end
 
   describe 'gzipped and large payloads' do
-    it 'automatically hashes payloads bigger than 500kb' do
-      PAYLOAD_SIZE_500kb = 500000
-      stub_request(:get, OUTBOUND_URL).
-      to_return(status: 200, body: { payload: 'X' * PAYLOAD_SIZE_500kb }.to_json, headers: {})
-
-      Supergood.init()
-      Faraday.get(OUTBOUND_URL)
-      Supergood.close()
-
-      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
-      with { |req|
-        req.body = JSON.parse(req.body, symbolize_names: true)
-        req.body[0][:response][:body][:hashed] == 'ZTg2YjZhNjhjNTM5NGRmN2UyNGRhNGQzZjQxNzEyNmE2OTBlMDI3Nw==' &&
-        req.body[0][:request] != nil
-      }).to have_been_made.once
-    end
-
     it 'does not automatically hash payloads smaller than 500kb, but large nonetheless' do
+      stub_remote_config
       PAYLOAD_SIZE_300kb = 300000
       payload = { payload: 'X' * PAYLOAD_SIZE_300kb }.to_json
       stub_request(:get, OUTBOUND_URL).
       to_return(status: 200, body: payload, headers: {})
 
-      Supergood.init()
+      Supergood.init
       Faraday.get(OUTBOUND_URL)
-      Supergood.close()
+      Supergood.close
 
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
@@ -340,8 +306,153 @@ describe Supergood do
     end
   end
 
+  describe 'redact by default' do
+    it 'redacts all data by default when flag set' do
+    end
+  end
+
+  describe 'remote config' do
+    it 'fetches remote config' do
+      stub_remote_config([{
+        domain: Supergood::Utils.get_host_without_www(OUTBOUND_URL),
+        endpoints: [
+          {
+            name: '/test_two',
+            matchingRegex: { regex: '/test_two', location: 'path' },
+            endpointConfiguration: { action: 'Ignore', sensitiveKeys: [{}] }
+          }
+        ]
+      }])
+      stub_request(:get, OUTBOUND_URL + '/test_one').to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
+      Supergood.init
+      Faraday.get(OUTBOUND_URL + '/test_one')
+      Supergood.close
+
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
+      with { |req|
+        req.body = JSON.parse(req.body, symbolize_names: true)
+        req.body.length == 1 && req.body[0][:request][:url] == OUTBOUND_URL + '/test_one'
+      }).to have_been_made.once
+    end
+
+    it 'fetches remote config and ignores some endpoints' do
+      stub_request(:get, OUTBOUND_URL + '/test_one').to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
+      stub_request(:get, OUTBOUND_URL + '/test_two').to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
+      stub_remote_config([{
+        domain: Supergood::Utils.get_host_without_www(OUTBOUND_URL),
+        endpoints: [
+          {
+            name: '/test_one',
+            matchingRegex: { regex: '/test_one', location: 'path' },
+            endpointConfiguration: { action: 'Ignore', sensitiveKeys: [{}] }
+          }
+        ]
+      }])
+
+      Supergood.init
+      Faraday.get(OUTBOUND_URL + '/test_one')
+      Faraday.get(OUTBOUND_URL + '/test_two')
+      Supergood.close
+
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
+      with { |req|
+        req.body = JSON.parse(req.body, symbolize_names: true)
+        req.body.length == 1 && req.body[0][:request][:url] == OUTBOUND_URL + '/test_two'
+      }).to have_been_made.once
+    end
+
+    it 'redacts non-array sensitive keys' do
+      stub_request(:get, OUTBOUND_URL + '/test_one').to_return(status: 200, body: { message: 'success', redact_me: 'redact_me' }.to_json, headers: {})
+      stub_remote_config([{
+        domain: Supergood::Utils.get_host_without_www(OUTBOUND_URL),
+        endpoints: [
+          {
+            name: '/test_one',
+            matchingRegex: { regex: '/test_one', location: 'path' },
+            endpointConfiguration: {
+              action: 'Allow',
+              sensitiveKeys: [{
+                keyPath: 'response.body.redact_me'
+              }]
+            }
+          }
+        ]
+      }])
+
+      Supergood.init
+      Faraday.get(OUTBOUND_URL + '/test_one')
+      Supergood.close
+
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
+      with { |req|
+        req.body = JSON.parse(req.body, symbolize_names: true)
+        req.body.length == 1 &&
+        req.body[0][:response][:body][:redact_me].nil? &&
+        req.body[0][:metadata][:sensitiveKeys][0][:keyPath] == 'responseBody.redact_me' &&
+        req.body[0][:metadata][:sensitiveKeys][0][:length] == 9 &&
+        req.body[0][:metadata][:sensitiveKeys][0][:type] == 'string'
+      }).to have_been_made.once
+    end
+
+    it 'redacts sensitive keys as array elements' do
+      stub_request(:get, OUTBOUND_URL + '/test_one').to_return(status: 200, body: {
+        message: 'success',
+        txns: [{ price: 123, user: 'alex' }, { price: 321, user: 'steve' }]
+      }.to_json, headers: {})
+      stub_remote_config([{
+        domain: Supergood::Utils.get_host_without_www(OUTBOUND_URL),
+        endpoints: [
+          {
+            name: '/test_one',
+            matchingRegex: { regex: '/test_one', location: 'path' },
+            endpointConfiguration: {
+              action: 'Allow',
+              sensitiveKeys: [{
+                keyPath: 'response.body.txns[].user'
+              }]
+            }
+          }
+        ]
+      }])
+
+      Supergood.init
+      Faraday.get(OUTBOUND_URL + '/test_one')
+      Supergood.close
+
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
+      with { |req|
+        req.body = JSON.parse(req.body, symbolize_names: true)
+        req.body.length == 1 &&
+        req.body[0][:response][:body][:txns][0][:user].nil? &&
+        req.body[0][:response][:body][:txns][1][:user].nil? &&
+        !req.body[0][:response][:body][:txns][0][:price].nil? &&
+        !req.body[0][:response][:body][:txns][1][:price].nil? &&
+        req.body[0][:metadata][:sensitiveKeys][0][:keyPath] == 'responseBody.txns[0].user' &&
+        req.body[0][:metadata][:sensitiveKeys][0][:length] == 4 &&
+        req.body[0][:metadata][:sensitiveKeys][0][:type] == 'string' &&
+        req.body[0][:metadata][:sensitiveKeys][1][:keyPath] == 'responseBody.txns[1].user' &&
+        req.body[0][:metadata][:sensitiveKeys][1][:length] == 5 &&
+        req.body[0][:metadata][:sensitiveKeys][1][:type] == 'string'
+      }).to have_been_made.once
+    end
+
+    it 'does not intercept anything if the remote config can not be fetched' do
+      stub_request(:get, OUTBOUND_URL + '/test_one').to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
+      stub_remote_config(config=[], status=500)
+
+      Supergood.init
+      Faraday.get(OUTBOUND_URL + '/test_one')
+      Supergood.close
+
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events')).
+      to_not have_been_made
+    end
+
+  end
+
   describe 'other http clients' do
     it 'tests rest-client' do
+      stub_remote_config
       payload = { message: 'success' }.to_json
       stub_request(:get, OUTBOUND_URL).
       to_return(status: 200, body: payload, headers: {})
@@ -359,6 +470,7 @@ describe Supergood do
     end
 
     it 'tests HTTParty' do
+      stub_remote_config
       payload = { message: 'success' }.to_json
       stub_request(:get, OUTBOUND_URL).
       to_return(status: 200, body: payload, headers: {})
@@ -376,17 +488,18 @@ describe Supergood do
     end
 
     it 'tests http.rb' do
+      stub_remote_config
       WebMock.allow_net_connect!
       payload = { message: 'success' }.to_json
       stub_request(:post, OUTBOUND_URL + '?params=1').
       to_return(status: 200, body: payload, headers: { 'Content-type' => 'application/json'})
 
-      Supergood.init()
+      Supergood.init
 
       http = HTTP.accept(:json)
-      response = http.post(OUTBOUND_URL + '?params=1', :body => 'test=123')
+      http.post(OUTBOUND_URL + '?params=1', :body => 'test=123')
 
-      Supergood.close()
+      Supergood.close
 
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|

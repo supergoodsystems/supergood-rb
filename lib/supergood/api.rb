@@ -56,5 +56,15 @@ module Supergood
         end
       end
     end
+
+    def get_remote_config
+      uri = URI(@base_url + '/config')
+      response = Net::HTTP.get_response(uri, @header_options)
+      if response.code == '200'
+        return JSON.parse(response.body, symbolize_names: true)
+      else
+        raise SupergoodException.new ERRORS[:CONFIG_FETCH_ERROR]
+      end
+    end
   end
 end

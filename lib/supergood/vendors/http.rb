@@ -14,7 +14,7 @@ module Supergood
                 url: original_request_payload.uri.to_s,
                 path: original_request_payload.uri.path,
                 search: original_request_payload.uri.query,
-                domain: original_request_payload.uri.host
+                domain: Supergood::Utils.get_host_without_www(original_request_payload.uri.host)
               }
               Supergood.intercept(request) do
                 original_response = original_perform(original_request_payload, original_options)

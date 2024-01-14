@@ -10,7 +10,7 @@ module Supergood
           block = lambda do |x|
             alias original_request_method request
             def request(original_request_payload, body = nil, &block)
-              http = self;
+              http = self
               url = Supergood::Utils.request_url(http, original_request_payload)
               uri = URI.parse(url)
               request = {
@@ -20,7 +20,7 @@ module Supergood
                 url: url,
                 path: original_request_payload.path,
                 search: uri.query,
-                domain: uri.host,
+                domain: Supergood::Utils.get_host_without_www(uri.host)
               }
               Supergood.intercept(request) do
                 original_response = original_request_method(original_request_payload, body, &block)

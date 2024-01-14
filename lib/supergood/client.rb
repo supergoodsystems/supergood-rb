@@ -31,7 +31,6 @@ module Supergood
 
       @allowed_domains = @config[:allowedDomains]
       @ignored_domains = @config[:ignoredDomains]
-      @keys_to_hash = @config[:keysToHash]
       @logger = Supergood::Logger.new(@api, @config, @api.header_options)
 
       @api.set_logger(@logger)
@@ -40,13 +39,15 @@ module Supergood
       @response_cache = {}
 
       @interval_thread = set_interval(@config[:flushInterval]) { flush_cache }
+      @remote_config_thread = set_interval(@config[:remoteConfigFetchInterval]) { fetch_and_process_remote_config }
 
       @http_clients = [
         Supergood::Vendor::NetHTTP,
         Supergood::Vendor::HTTPrb
       ]
 
-      patch_all()
+      fetch_and_process_remote_config
+      patch_all
       self
     end
 
@@ -58,6 +59,16 @@ module Supergood
       @api
     end
 
+    def fetch_and_process_remote_config
+      begin
+        remote_config = @api.get_remote_config
+        puts remote_config
+        @config = @config.merge({ :remote_config => Supergood::Utils.process_remote_config(remote_config) })
+      rescue => e
+        log.error({}, e, ERRORS[:CONFIG_FETCH_ERROR])
+      end
+    end
+
     def flush_cache(force = false)
       # If there's notthing in the response cache, and we're not forcing a flush, then return
 
@@ -67,11 +78,8 @@ module Supergood
         return
       end
 
-      data = @response_cache.values
-
-      if force
-        data += @request_cache.values
-      end
+      data = Supergood::Utils.prepare_data(@response_cache.values, @config[:remote_config])
+      data += Supergood::Utils.prepare_data(@request_cache.values, @config[:remote_config]) if force
 
       begin
         api.post_events(data)
@@ -86,6 +94,7 @@ module Supergood
 
     def cleanup()
       @interval_thread.kill
+      @remote_config_thread.kill
       unpatch_all()
     end
 
@@ -117,16 +126,25 @@ module Supergood
     end
 
     def intercept(request)
+      remote_config = @config[:remote_config]
+
+      if remote_config.nil?
+        response = yield
+        return response[:original_response]
+      end
+
       request_id = SecureRandom.uuid
       requested_at = Time.now
-      if !ignored?(request[:domain])
-        puts "Caching Request"
+
+      endpoint_config = Supergood::Utils.get_endpoint_config(request, remote_config)
+      ignore_endpoint = endpoint_config ? endpoint_config[:ignored] : false
+
+      if !ignore_endpoint && !ignored?(request[:domain])
         cache_request(request_id, requested_at, request)
       end
 
       response = yield
-      if !ignored?(request[:domain]) && defined?(response)
-        puts "Caching Response"
+      if !ignore_endpoint && !ignored?(request[:domain]) && defined?(response)
         cache_response(request_id, requested_at, response)
       end
 
@@ -134,6 +152,10 @@ module Supergood
     end
 
     def cache_request(request_id, requested_at, request)
+      if !@config[:remote_config]
+        return
+      end
+
       begin
         request_payload = {
           id: request_id,
@@ -154,6 +176,10 @@ module Supergood
     end
 
     def cache_response(request_id, requested_at, response)
+      if !@config[:remote_config]
+        return
+      end
+
       begin
         responded_at = Time.now
         duration = (responded_at - requested_at) * 1000
@@ -166,9 +192,7 @@ module Supergood
           respondedAt: responded_at,
           duration: duration.round,
         }
-        @response_cache[request_id] = Supergood::Utils.hash_values_from_keys(request_payload.merge({
-          response: response_payload
-        }), @keys_to_hash)
+        @response_cache[request_id] = request_payload.merge({ response: response_payload })
         @request_cache.delete(request_id)
       rescue => e
         log.error(
@@ -179,7 +203,7 @@ module Supergood
     end
 
     def ignored?(domain)
-      base_domain = URI.parse(@base_url).hostname
+      base_domain = Supergood::Utils.get_host_without_www(@base_url)
       if domain == base_domain
         return true
       elsif @allowed_domains.any?
