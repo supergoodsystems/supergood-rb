@@ -104,7 +104,6 @@ module Supergood
     end
 
     def self.expand(parts, obj, key_path)
-      # puts "parts: #{parts}, key_path: #{key_path}"
       path = key_path
       return [path] if parts.empty?
 
@@ -164,9 +163,11 @@ module Supergood
       keys = key_path.split('.')
       current_key = keys.first
       index = current_key.match(/\[(\d+)\]/)
+
       if index
         index = index[1].to_i
       end
+
       # Convert current_key to symbol if necessary
       if index
         current_key = current_key.gsub(/\[\d+\]/, '')
@@ -177,7 +178,7 @@ module Supergood
       return hash unless hash.keys.include?(current_key)
 
       if keys.length == 1
-        hash[current_key] = nil
+        index ? hash[current_key][index] = nil : hash[current_key] = nil
       elsif hash[current_key].is_a?(Hash)
         set_value_to_nil(hash[current_key], keys[1..].join('.'))
       elsif hash[current_key].is_a?(Array)
@@ -187,18 +188,62 @@ module Supergood
       hash
     end
 
-    def self.redact_values_from_keys(event, remote_config)
+    def self.find_leaf_key_paths(structure, current_path = [])
+      key_paths = []
+
+      if structure.is_a?(Hash)
+        # Iterate through each key-value pair in the hash
+        structure.each do |key, value|
+          # Recursively find key paths in the value
+          key_paths += find_leaf_key_paths(value, current_path + [key.to_s])
+        end
+      elsif structure.is_a?(Array)
+        # Iterate through each element in the array
+        structure.each_with_index do |element, index|
+          # Modify how indices are appended to the path
+          # Check if the last element in the current_path is a hash key or an array index
+          if current_path.last && current_path.last.include?('[')
+            new_path = current_path[0...-1] + ["#{current_path.last}[#{index}]"]
+          else
+            new_path = current_path + ["[#{index}]"]
+          end
+
+          # Recursively find key paths in the element
+          key_paths += find_leaf_key_paths(element, new_path)
+        end
+      else
+        # Leaf node: construct the key path and add it to the list
+        key_path = current_path.join('.').gsub('.[', '[')
+        key_paths << key_path unless key_path.empty?
+      end
+
+      key_paths
+    end
+
+    def self.redact_values_from_keys(event, remote_config, force_redact_all)
       sensitive_key_metadata = []
       endpoint_config = get_endpoint_config(event[:request], remote_config)
-      unless endpoint_config && endpoint_config[:sensitive_keys].any?
+
+      unless (endpoint_config && endpoint_config[:sensitive_keys].any?) || force_redact_all
         return { event: event, sensitive_key_metadata: sensitive_key_metadata }
       end
+
+      if force_redact_all
+        # Need response.body in path
+        sensitive_keys = find_leaf_key_paths(event[:response][:body], ['response', 'body'])
+        sensitive_keys += find_leaf_key_paths(event[:request][:body], ['request', 'body'])
+        sensitive_keys += find_leaf_key_paths(event[:request][:headers], ['request', 'headers'])
+        sensitive_keys += find_leaf_key_paths(event[:response][:headers], ['response', 'headers'])
+      else
+        sensitive_keys = endpoint_config[:sensitive_keys]
+      end
+
       sensitive_keys = expand_sensitive_key_set_for_arrays(
-        event, endpoint_config[:sensitive_keys].map { |key| marshal_key_path(key) }
+        event, sensitive_keys.map { |key| marshal_key_path(key) }
       )
       sensitive_keys.each do |key_path|
         value = R_.get(event, key_path)
-        if !(value.nil? || value.empty?)
+        if !value.nil?
           event = set_value_to_nil(event, key_path)
           # Add sensitive key for array expansion
           sensitive_key_metadata << { keyPath: unmarshal_key_path(key_path) }.merge(redact_value(value))
@@ -231,9 +276,9 @@ module Supergood
       { length: data_length, type: data_type }
     end
 
-    def self.prepare_data(events, remote_config)
+    def self.prepare_data(events, remote_config, force_redact_all)
       events.map do |event|
-        redacted_event_with_metadata = redact_values_from_keys(event, remote_config)
+        redacted_event_with_metadata = redact_values_from_keys(event, remote_config, force_redact_all)
         redacted_event_with_metadata[:event].merge(
           metadata: { sensitiveKeys: redacted_event_with_metadata[:sensitive_key_metadata] }
         )

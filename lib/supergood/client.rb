@@ -62,7 +62,6 @@ module Supergood
     def fetch_and_process_remote_config
       begin
         remote_config = @api.get_remote_config
-        puts remote_config
         @config = @config.merge({ :remote_config => Supergood::Utils.process_remote_config(remote_config) })
       rescue => e
         log.error({}, e, ERRORS[:CONFIG_FETCH_ERROR])
@@ -78,8 +77,8 @@ module Supergood
         return
       end
 
-      data = Supergood::Utils.prepare_data(@response_cache.values, @config[:remote_config])
-      data += Supergood::Utils.prepare_data(@request_cache.values, @config[:remote_config]) if force
+      data = Supergood::Utils.prepare_data(@response_cache.values, @config[:remote_config], @config[:forceRedactAll])
+      data += Supergood::Utils.prepare_data(@request_cache.values, @config[:remote_config], @config[:forceRedactAll]) if force
 
       begin
         api.post_events(data)

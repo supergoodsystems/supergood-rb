@@ -17,12 +17,12 @@ ERRORS = {
 LOCAL_CLIENT_ID = 'local-client-id';
 LOCAL_CLIENT_SECRET = 'local-client-secret';
 
-DEFAULT_SUPERGOOD_BYTE_LIMIT = 500000
+DEFAULT_SUPERGOOD_BYTE_LIMIT = 500_000
 
 DEFAULT_CONFIG = {
   keysToHash: [],
   flushInterval: 1000,
-  remoteConfigFetchInterval: 10000,
+  remoteConfigFetchInterval: 10_000,
   ignoredDomains: [],
   allowedDomains: [],
   forceRedactAll: true
