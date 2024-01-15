@@ -241,13 +241,13 @@ module Supergood
       sensitive_keys = expand_sensitive_key_set_for_arrays(
         event, sensitive_keys.map { |key| marshal_key_path(key) }
       )
+
+      puts "Sensitive keys: #{sensitive_keys}"
       sensitive_keys.each do |key_path|
         value = R_.get(event, key_path)
-        if !value.nil?
-          event = set_value_to_nil(event, key_path)
-          # Add sensitive key for array expansion
-          sensitive_key_metadata << { keyPath: unmarshal_key_path(key_path) }.merge(redact_value(value))
-        end
+        event = set_value_to_nil(event, key_path)
+        # Add sensitive key for array expansion
+        sensitive_key_metadata << { keyPath: unmarshal_key_path(key_path) }.merge(redact_value(value))
       end
 
       { event: event, sensitive_key_metadata: sensitive_key_metadata }

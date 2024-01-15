@@ -431,6 +431,84 @@ describe Supergood do
       }).to have_been_made.once
     end
 
+    it 'redacts data types properly' do
+      stub_request(:get, OUTBOUND_URL + '/test_one').to_return(status: 200, body: {
+        string: 'string',
+        array: [1,2,3],
+        object: { a: 1, b: 2 },
+        number: 123,
+        float: 123.456,
+        boolean: true,
+        nothing: nil
+      }.to_json, headers: {})
+      stub_remote_config([{
+        domain: Supergood::Utils.get_host_without_www(OUTBOUND_URL),
+        endpoints: [
+          {
+            name: '/test_one',
+            matchingRegex: { regex: '/test_one', location: 'path' },
+            endpointConfiguration: {
+              action: 'Allow',
+              sensitiveKeys: [
+                {
+                  keyPath: 'response.body.string'
+                },
+                {
+                  keyPath: 'response.body.array'
+                },
+                {
+                  keyPath: 'response.body.object'
+                },
+                {
+                  keyPath: 'response.body.number'
+                },
+                {
+                  keyPath: 'response.body.boolean'
+                },
+                {
+                  keyPath: 'response.body.nothing'
+                },
+                {
+                  keyPath: 'response.body.float'
+                }
+              ]
+            }
+          }
+        ]
+      }])
+
+      Supergood.init({ forceRedactAll: false })
+      Faraday.get(OUTBOUND_URL + '/test_one')
+      Supergood.close
+
+      expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
+      with { |req|
+        req.body = JSON.parse(req.body, symbolize_names: true)
+        req.body[0][:metadata][:sensitiveKeys].length == 6 &&
+        req.body[0][:metadata][:sensitiveKeys][0][:keyPath] == 'responseBody.string' &&
+        req.body[0][:metadata][:sensitiveKeys][0][:length] == 6 &&
+        req.body[0][:metadata][:sensitiveKeys][0][:type] == 'string' &&
+        req.body[0][:metadata][:sensitiveKeys][1][:keyPath] == 'responseBody.array' &&
+        req.body[0][:metadata][:sensitiveKeys][1][:length] == 3 &&
+        req.body[0][:metadata][:sensitiveKeys][1][:type] == 'array' &&
+        req.body[0][:metadata][:sensitiveKeys][2][:keyPath] == 'responseBody.object' &&
+        req.body[0][:metadata][:sensitiveKeys][2][:length] == 13 &&
+        req.body[0][:metadata][:sensitiveKeys][2][:type] == 'object' &&
+        req.body[0][:metadata][:sensitiveKeys][3][:keyPath] == 'responseBody.number' &&
+        req.body[0][:metadata][:sensitiveKeys][3][:length] == 3 &&
+        req.body[0][:metadata][:sensitiveKeys][3][:type] == 'integer' &&
+        req.body[0][:metadata][:sensitiveKeys][4][:keyPath] == 'responseBody.boolean' &&
+        req.body[0][:metadata][:sensitiveKeys][4][:length] == 1 &&
+        req.body[0][:metadata][:sensitiveKeys][4][:type] == 'boolean' &&
+        req.body[0][:metadata][:sensitiveKeys][5][:keyPath] == 'responseBody.nothing' # &&
+        req.body[0][:metadata][:sensitiveKeys][5][:length] == 0 &&
+        req.body[0][:metadata][:sensitiveKeys][5][:type] == 'null' &&
+        req.body[0][:metadata][:sensitiveKeys][6][:keyPath] == 'responseBody.float' &&
+        req.body[0][:metadata][:sensitiveKeys][6][:length] == 7 &&
+        req.body[0][:metadata][:sensitiveKeys][6][:type] == 'float'
+      }).to have_been_made.once
+    end
+
     it 'redacts sensitive keys as array elements' do
       stub_request(:get, OUTBOUND_URL + '/test_one').to_return(status: 200, body: {
         message: 'success',
