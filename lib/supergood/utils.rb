@@ -242,7 +242,6 @@ module Supergood
         event, sensitive_keys.map { |key| marshal_key_path(key) }
       )
 
-      puts "Sensitive keys: #{sensitive_keys}"
       sensitive_keys.each do |key_path|
         value = R_.get(event, key_path)
         event = set_value_to_nil(event, key_path)
