@@ -10,11 +10,12 @@ module Supergood
       uri = URI.parse(url)
       uri = URI.parse("http://#{url}") if uri.scheme.nil?
       host = uri.host.downcase
-      host.start_with?('www.') ? host[4..-1] : host
+      host.start_with?('www.') ? host[4..] : host
     end
 
     def self.safe_parse_json(input)
       return '' if !input || input == ''
+
       begin
         JSON.parse(input)
       rescue => e
@@ -31,7 +32,7 @@ module Supergood
     end
 
     def self.request_url(http, request)
-      URI::DEFAULT_PARSER.unescape("http#{"s" if http.use_ssl?}://#{http.address}#{request.path}")
+      URI::DEFAULT_PARSER.unescape("http#{'s' if http.use_ssl?}://#{http.address}#{request.path}")
     end
 
     def self.make_config(config)
@@ -117,19 +118,19 @@ module Supergood
 
         # Expand for each element in the array
         obj.flat_map.with_index do |_, index|
-          expand(parts[1..-1], obj[index], "#{path}#{separator}[#{index}]")
+          expand(parts[1..], obj[index], "#{path}#{separator}[#{index}]")
         end
       elsif part.start_with?('[') && part.end_with?(']')
         # Specific index in the array
         index = part[1...-1].to_i
         if index.is_a?(Numeric) && index < obj.length
-          expand(parts[1..-1], obj[index], "#{path}#{separator}#{part}")
+          expand(parts[1..], obj[index], "#{path}#{separator}#{part}")
         else
           []
         end
       else
         if obj && obj.is_a?(Hash) && obj.key?(part)
-          expand(parts[1..-1], obj[part], "#{path}#{separator}#{part}")
+          expand(parts[1..], obj[part], "#{path}#{separator}#{part}")
         else
           []
         end
@@ -164,16 +165,10 @@ module Supergood
       current_key = keys.first
       index = current_key.match(/\[(\d+)\]/)
 
-      if index
-        index = index[1].to_i
-      end
+      index = index[1].to_i if index
 
       # Convert current_key to symbol if necessary
-      if index
-        current_key = current_key.gsub(/\[\d+\]/, '')
-      elsif hash.keys.include?(current_key)
-        current_key = current_key
-      end
+      current_key = current_key.gsub(/\[\d+\]/, '') if index
 
       return hash unless hash.keys.include?(current_key)
 
