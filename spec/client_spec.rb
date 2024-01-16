@@ -68,9 +68,9 @@ describe Supergood do
 
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
-        req.body = JSON.parse(req.body, symbolize_names: true)
-        !req.body[0][:request].nil? &&
-        !req.body[0][:response].nil?
+        req.body = JSON.parse(req.body)
+        !req.body[0]['request'].nil? &&
+        !req.body[0]['response'].nil?
       })
         .to have_been_made.once
     end
@@ -89,10 +89,10 @@ describe Supergood do
       Supergood.close()
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
-        req.body = JSON.parse(req.body, symbolize_names: true)
+        req.body = JSON.parse(req.body)
         req.body.length() == http_error_codes.length() &&
-        req.body[0][:request] != nil &&
-        req.body[0][:response] != nil
+        req.body[0]['request'] != nil &&
+        req.body[0]['response'] != nil
       }).
       to have_been_made.once
     end
@@ -106,10 +106,10 @@ describe Supergood do
       Supergood.close
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
-        req.body = JSON.parse(req.body, symbolize_names: true)
-        !req.body[0][:request].nil? &&
-        req.body[0][:request][:method] == 'POST' &&
-        !req.body[0][:response].nil?
+        req.body = JSON.parse(req.body)
+        !req.body[0]['request'].nil? &&
+        req.body[0]['request']['method'] == 'POST' &&
+        !req.body[0]['response'].nil?
       })
         .to have_been_made.once
     end
@@ -143,9 +143,9 @@ describe Supergood do
 
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
-        req.body = JSON.parse(req.body, symbolize_names: true)
-        !req.body[0][:request].nil? &&
-        !req.body[0][:response].nil?
+        req.body = JSON.parse(req.body)
+        !req.body[0]['request'].nil? &&
+        !req.body[0]['response'].nil?
       })
         .to have_been_made.once
     end
@@ -163,9 +163,9 @@ describe Supergood do
 
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
-        req.body = JSON.parse(req.body, symbolize_names: true)
-        !req.body[0][:request].nil? &&
-        !req.body[0][:response].nil?
+        req.body = JSON.parse(req.body)
+        !req.body[0]['request'].nil? &&
+        !req.body[0]['response'].nil?
       })
         .to have_been_made.once
     end
@@ -187,9 +187,9 @@ describe Supergood do
 
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
-        req.body = JSON.parse(req.body, symbolize_names: true)
-        !req.body[0][:request].nil? &&
-        !req.body[0][:response].nil?
+        req.body = JSON.parse(req.body)
+        !req.body[0]['request'].nil? &&
+        !req.body[0]['response'].nil?
       })
         .to have_been_made.once
     end
@@ -210,9 +210,9 @@ describe Supergood do
       Supergood.close()
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
-        req.body = JSON.parse(req.body, symbolize_names: true)
-        !req.body[0][:request].nil? &&
-        req.body[0][:response].nil?
+        req.body = JSON.parse(req.body)
+        !req.body[0]['request'].nil? &&
+        req.body[0]['response'].nil?
       })
         .to have_been_made.once
     end
@@ -222,15 +222,15 @@ describe Supergood do
       stub_remote_config
       stub_request(:get, OUTBOUND_URL).to_return(status: 200, body: { message: 'success' }.to_json, headers: {})
       stub_request(:post,  ENV['SUPERGOOD_BASE_URL'] + '/errors').to_return(status: 200, body: { message: 'Success' }.to_json, headers: {})
-      stub_request(:post,  ENV['SUPERGOOD_BASE_URL'] + '/events').to_raise(SupergoodException.new ERRORS[:POSTING_EVENTS])
+      stub_request(:post,  ENV['SUPERGOOD_BASE_URL'] + '/events').to_raise(SupergoodException.new ERRORS['POSTING_EVENTS'])
 
       Supergood.init({ forceRedactAll: false })
       Faraday.get(OUTBOUND_URL)
       Supergood.close
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/errors').
       with { | req |
-        req.body = JSON.parse(req.body, symbolize_names: true)
-        req.body[:error] != nil
+        req.body = JSON.parse(req.body)
+        req.body['error'] != nil
       }).to have_been_made.once
       WebMock.reset!
     end
@@ -259,9 +259,9 @@ describe Supergood do
       Supergood.close
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
-        req.body = JSON.parse(req.body, symbolize_names: true)
+        req.body = JSON.parse(req.body)
         req.body.length == 1 &&
-        req.body[0][:request][:url] == SECOND_OUTBOUND_URL
+        req.body[0]['request']['url'] == SECOND_OUTBOUND_URL
       }).to have_been_made.once
     end
 
@@ -277,9 +277,9 @@ describe Supergood do
       Supergood.close
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
-        req.body = JSON.parse(req.body, symbolize_names: true)
+        req.body = JSON.parse(req.body)
         req.body.length == 1 &&
-        req.body[0][:request][:url] == SECOND_OUTBOUND_URL
+        req.body[0]['request']['url'] == SECOND_OUTBOUND_URL
       }).to have_been_made.once
     end
 
@@ -299,9 +299,9 @@ describe Supergood do
 
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
-        req.body = JSON.parse(req.body, symbolize_names: true)
-        req.body[0][:response][:body].to_json == payload &&
-        !req.body[0][:request].nil?
+        req.body = JSON.parse(req.body)
+        req.body[0]['response']['body'].to_json == payload &&
+        !req.body[0]['request'].nil?
       }).to have_been_made.once
     end
   end
@@ -332,18 +332,18 @@ describe Supergood do
 
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events')
         .with { |req|
-        req.body = JSON.parse(req.body, symbolize_names: true)
-        req.body[0][:response][:body][:txns][0][:user].nil? &&
-        req.body[0][:response][:body][:txns][0][:id].nil? &&
-        req.body[0][:response][:body][:txns][1][:user].nil? &&
-        req.body[0][:response][:body][:txns][1][:id].nil? &&
-        req.body[0][:response][:body][:payment_method][:type].nil? &&
-        req.body[0][:response][:body][:payment_method][:card][:numbers][0].nil? &&
-        req.body[0][:response][:body][:payment_method][:card][:numbers][1].nil? &&
-        req.body[0][:response][:body][:payment_method][:card][:numbers][2].nil? &&
-        req.body[0][:response][:body][:payment_method][:card][:numbers][3].nil? &&
-        req.body[0][:response][:headers]['content-type'.to_sym].nil? &&
-        req.body[0][:response][:headers]['content-encoding'.to_sym].nil?
+        req.body = JSON.parse(req.body)
+        req.body[0]['response']['body']['txns'][0]['user'].nil? &&
+        req.body[0]['response']['body']['txns'][0]['id'].nil? &&
+        req.body[0]['response']['body']['txns'][1]['user'].nil? &&
+        req.body[0]['response']['body']['txns'][1]['id'].nil? &&
+        req.body[0]['response']['body']['payment_method']['type'].nil? &&
+        req.body[0]['response']['body']['payment_method']['card']['numbers'][0].nil? &&
+        req.body[0]['response']['body']['payment_method']['card']['numbers'][1].nil? &&
+        req.body[0]['response']['body']['payment_method']['card']['numbers'][2].nil? &&
+        req.body[0]['response']['body']['payment_method']['card']['numbers'][3].nil? &&
+        req.body[0]['response']['headers']['content-type'].nil? &&
+        req.body[0]['response']['headers']['content-encoding'].nil?
       }).to have_been_made.once
     end
   end
@@ -367,8 +367,8 @@ describe Supergood do
 
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
-        req.body = JSON.parse(req.body, symbolize_names: true)
-        req.body.length == 1 && req.body[0][:request][:url] == OUTBOUND_URL + '/test_one'
+        req.body = JSON.parse(req.body)
+        req.body.length == 1 && req.body[0]['request']['url'] == OUTBOUND_URL + '/test_one'
       }).to have_been_made.once
     end
 
@@ -393,8 +393,8 @@ describe Supergood do
 
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
-        req.body = JSON.parse(req.body, symbolize_names: true)
-        req.body.length == 1 && req.body[0][:request][:url] == OUTBOUND_URL + '/test_two'
+        req.body = JSON.parse(req.body)
+        req.body.length == 1 && req.body[0]['request']['url'] == OUTBOUND_URL + '/test_two'
       }).to have_been_made.once
     end
 
@@ -422,12 +422,12 @@ describe Supergood do
 
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
-        req.body = JSON.parse(req.body, symbolize_names: true)
+        req.body = JSON.parse(req.body)
         req.body.length == 1 &&
-        req.body[0][:response][:body][:redact_me].nil? &&
-        req.body[0][:metadata][:sensitiveKeys][0][:keyPath] == 'responseBody.redact_me' &&
-        req.body[0][:metadata][:sensitiveKeys][0][:length] == 9 &&
-        req.body[0][:metadata][:sensitiveKeys][0][:type] == 'string'
+        req.body[0]['response']['body']['redact_me'].nil? &&
+        req.body[0]['metadata']['sensitiveKeys'][0]['keyPath'] == 'responseBody.redact_me' &&
+        req.body[0]['metadata']['sensitiveKeys'][0]['length'] == 9 &&
+        req.body[0]['metadata']['sensitiveKeys'][0]['type'] == 'string'
       }).to have_been_made.once
     end
 
@@ -483,29 +483,29 @@ describe Supergood do
 
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
-        req.body = JSON.parse(req.body, symbolize_names: true)
-        req.body[0][:metadata][:sensitiveKeys].length == 6 &&
-        req.body[0][:metadata][:sensitiveKeys][0][:keyPath] == 'responseBody.string' &&
-        req.body[0][:metadata][:sensitiveKeys][0][:length] == 6 &&
-        req.body[0][:metadata][:sensitiveKeys][0][:type] == 'string' &&
-        req.body[0][:metadata][:sensitiveKeys][1][:keyPath] == 'responseBody.array' &&
-        req.body[0][:metadata][:sensitiveKeys][1][:length] == 3 &&
-        req.body[0][:metadata][:sensitiveKeys][1][:type] == 'array' &&
-        req.body[0][:metadata][:sensitiveKeys][2][:keyPath] == 'responseBody.object' &&
-        req.body[0][:metadata][:sensitiveKeys][2][:length] == 13 &&
-        req.body[0][:metadata][:sensitiveKeys][2][:type] == 'object' &&
-        req.body[0][:metadata][:sensitiveKeys][3][:keyPath] == 'responseBody.number' &&
-        req.body[0][:metadata][:sensitiveKeys][3][:length] == 3 &&
-        req.body[0][:metadata][:sensitiveKeys][3][:type] == 'integer' &&
-        req.body[0][:metadata][:sensitiveKeys][4][:keyPath] == 'responseBody.boolean' &&
-        req.body[0][:metadata][:sensitiveKeys][4][:length] == 1 &&
-        req.body[0][:metadata][:sensitiveKeys][4][:type] == 'boolean' &&
-        req.body[0][:metadata][:sensitiveKeys][5][:keyPath] == 'responseBody.nothing' # &&
-        req.body[0][:metadata][:sensitiveKeys][5][:length] == 0 &&
-        req.body[0][:metadata][:sensitiveKeys][5][:type] == 'null' &&
-        req.body[0][:metadata][:sensitiveKeys][6][:keyPath] == 'responseBody.float' &&
-        req.body[0][:metadata][:sensitiveKeys][6][:length] == 7 &&
-        req.body[0][:metadata][:sensitiveKeys][6][:type] == 'float'
+        req.body = JSON.parse(req.body)
+        req.body[0]['metadata']['sensitiveKeys'].length == 6 &&
+        req.body[0]['metadata']['sensitiveKeys'][0]['keyPath'] == 'responseBody.string' &&
+        req.body[0]['metadata']['sensitiveKeys'][0]['length'] == 6 &&
+        req.body[0]['metadata']['sensitiveKeys'][0]['type'] == 'string' &&
+        req.body[0]['metadata']['sensitiveKeys'][1]['keyPath'] == 'responseBody.array' &&
+        req.body[0]['metadata']['sensitiveKeys'][1]['length'] == 3 &&
+        req.body[0]['metadata']['sensitiveKeys'][1]['type'] == 'array' &&
+        req.body[0]['metadata']['sensitiveKeys'][2]['keyPath'] == 'responseBody.object' &&
+        req.body[0]['metadata']['sensitiveKeys'][2]['length'] == 13 &&
+        req.body[0]['metadata']['sensitiveKeys'][2]['type'] == 'object' &&
+        req.body[0]['metadata']['sensitiveKeys'][3]['keyPath'] == 'responseBody.number' &&
+        req.body[0]['metadata']['sensitiveKeys'][3]['length'] == 3 &&
+        req.body[0]['metadata']['sensitiveKeys'][3]['type'] == 'integer' &&
+        req.body[0]['metadata']['sensitiveKeys'][4]['keyPath'] == 'responseBody.boolean' &&
+        req.body[0]['metadata']['sensitiveKeys'][4]['length'] == 1 &&
+        req.body[0]['metadata']['sensitiveKeys'][4]['type'] == 'boolean' &&
+        req.body[0]['metadata']['sensitiveKeys'][5]['keyPath'] == 'responseBody.nothing' # &&
+        req.body[0]['metadata']['sensitiveKeys'][5]['length'] == 0 &&
+        req.body[0]['metadata']['sensitiveKeys'][5]['type'] == 'null' &&
+        req.body[0]['metadata']['sensitiveKeys'][6]['keyPath'] == 'responseBody.float' &&
+        req.body[0]['metadata']['sensitiveKeys'][6]['length'] == 7 &&
+        req.body[0]['metadata']['sensitiveKeys'][6]['type'] == 'float'
       }).to have_been_made.once
     end
 
@@ -536,18 +536,18 @@ describe Supergood do
 
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
-        req.body = JSON.parse(req.body, symbolize_names: true)
+        req.body = JSON.parse(req.body)
         req.body.length == 1 &&
-        req.body[0][:response][:body][:txns][0][:user].nil? &&
-        req.body[0][:response][:body][:txns][1][:user].nil? &&
-        !req.body[0][:response][:body][:txns][0][:price].nil? &&
-        !req.body[0][:response][:body][:txns][1][:price].nil? &&
-        req.body[0][:metadata][:sensitiveKeys][0][:keyPath] == 'responseBody.txns[0].user' &&
-        req.body[0][:metadata][:sensitiveKeys][0][:length] == 4 &&
-        req.body[0][:metadata][:sensitiveKeys][0][:type] == 'string' &&
-        req.body[0][:metadata][:sensitiveKeys][1][:keyPath] == 'responseBody.txns[1].user' &&
-        req.body[0][:metadata][:sensitiveKeys][1][:length] == 5 &&
-        req.body[0][:metadata][:sensitiveKeys][1][:type] == 'string'
+        req.body[0]['response']['body']['txns'][0]['user'].nil? &&
+        req.body[0]['response']['body']['txns'][1]['user'].nil? &&
+        !req.body[0]['response']['body']['txns'][0]['price'].nil? &&
+        !req.body[0]['response']['body']['txns'][1]['price'].nil? &&
+        req.body[0]['metadata']['sensitiveKeys'][0]['keyPath'] == 'responseBody.txns[0].user' &&
+        req.body[0]['metadata']['sensitiveKeys'][0]['length'] == 4 &&
+        req.body[0]['metadata']['sensitiveKeys'][0]['type'] == 'string' &&
+        req.body[0]['metadata']['sensitiveKeys'][1]['keyPath'] == 'responseBody.txns[1].user' &&
+        req.body[0]['metadata']['sensitiveKeys'][1]['length'] == 5 &&
+        req.body[0]['metadata']['sensitiveKeys'][1]['type'] == 'string'
       }).to have_been_made.once
     end
 
@@ -578,9 +578,9 @@ describe Supergood do
 
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
-        req.body = JSON.parse(req.body, symbolize_names: true)
-        req.body[0][:response][:body].to_json == payload &&
-        !req.body[0][:request].nil?
+        req.body = JSON.parse(req.body)
+        req.body[0]['response']['body'].to_json == payload &&
+        !req.body[0]['request'].nil?
       }).to have_been_made.once
     end
 
@@ -596,9 +596,9 @@ describe Supergood do
 
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
-        req.body = JSON.parse(req.body, symbolize_names: true)
-        req.body[0][:response][:body].to_json == payload &&
-        !req.body[0][:request].nil?
+        req.body = JSON.parse(req.body)
+        req.body[0]['response']['body'].to_json == payload &&
+        !req.body[0]['request'].nil?
       }).to have_been_made.once
     end
 
@@ -618,9 +618,9 @@ describe Supergood do
 
       expect(a_request(:post, ENV['SUPERGOOD_BASE_URL'] + '/events').
       with { |req|
-        req.body = JSON.parse(req.body, symbolize_names: true)
-        req.body[0][:response][:body].to_json == payload &&
-        !req.body[0][:request].nil?
+        req.body = JSON.parse(req.body)
+        req.body[0]['response']['body'].to_json == payload &&
+        !req.body[0]['request'].nil?
       }).to have_been_made.once
     end
   end

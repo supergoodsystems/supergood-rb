@@ -135,8 +135,8 @@ module Supergood
       request_id = SecureRandom.uuid
       requested_at = Time.now
 
-      endpoint_config = Supergood::Utils.get_endpoint_config(request, remote_config)
-      ignore_endpoint = endpoint_config ? endpoint_config[:ignored] : false
+      endpoint_config = Supergood::Utils.get_endpoint_config(request.transform_keys(&:to_s), remote_config)
+      ignore_endpoint = endpoint_config ? endpoint_config['ignored'] : false
 
       if !ignore_endpoint && !ignored?(request[:domain])
         cache_request(request_id, requested_at, request)
@@ -157,20 +157,20 @@ module Supergood
 
       begin
         request_payload = {
-          id: request_id,
-          headers: request[:headers],
-          method: request[:method],
-          url: request[:url],
-          path: request[:path],
-          search: request[:search] || '',
-          body: Supergood::Utils.safe_parse_json(request[:body]),
-          requestedAt: requested_at
+          'id' => request_id,
+          'headers' => Supergood::Utils.safe_parse_json(request[:headers]),
+          'method' => request[:method],
+          'url' => request[:url],
+          'path' => request[:path],
+          'search' => request[:search] || '',
+          'body' => Supergood::Utils.safe_parse_json(request[:body]),
+          'requestedAt' => requested_at
         }
         @request_cache[request_id] = {
-          request: request_payload
+          'request' => request_payload
         }
       rescue => e
-        log.error({ request: request }, e, ERRORS[:CACHING_REQUEST])
+        log.error({ 'request' => request }, e, ERRORS[:CACHING_REQUEST])
       end
     end
 
@@ -184,14 +184,14 @@ module Supergood
         duration = (responded_at - requested_at) * 1000
         request_payload = @request_cache[request_id]
         response_payload = {
-          headers: response[:headers],
-          status: response[:status],
-          statusText: response[:statusText],
-          body: Supergood::Utils.safe_parse_json(response[:body]),
-          respondedAt: responded_at,
-          duration: duration.round,
+          'headers' => Supergood::Utils.safe_parse_json(response[:headers]),
+          'status' => response[:status],
+          'statusText' => response[:statusText],
+          'body' => Supergood::Utils.safe_parse_json(response[:body]),
+          'respondedAt' => responded_at,
+          'duration' => duration.round
         }
-        @response_cache[request_id] = request_payload.merge({ response: response_payload })
+        @response_cache[request_id] = request_payload.merge({ 'response' => response_payload })
         @request_cache.delete(request_id)
       rescue => e
         log.error(

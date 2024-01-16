@@ -41,23 +41,23 @@ module Supergood
     def self.process_remote_config(remote_config_payload)
       remote_config_payload ||= []
       remote_config_payload.reduce({}) do |remote_config, domain_config|
-        domain = domain_config[:domain]
-        endpoints = domain_config[:endpoints]
+        domain = domain_config['domain']
+        endpoints = domain_config['endpoints']
         endpoint_config = endpoints.reduce({}) do |config, endpoint|
-          matching_regex = endpoint[:matchingRegex]
-          regex = matching_regex[:regex]
-          location = matching_regex[:location]
+          matching_regex = endpoint['matchingRegex']
+          regex = matching_regex['regex']
+          location = matching_regex['location']
 
-          endpoint_configuration = endpoint[:endpointConfiguration]
-          action = endpoint_configuration[:action]
-          sensitive_keys = endpoint_configuration[:sensitiveKeys] || []
-          sensitive_keys = sensitive_keys.map { |key| key[:keyPath] }
+          endpoint_configuration = endpoint['endpointConfiguration']
+          action = endpoint_configuration['action']
+          sensitive_keys = endpoint_configuration['sensitiveKeys'] || []
+          sensitive_keys = sensitive_keys.map { |key| key['keyPath'] }
 
           config[regex] = {
-            location: location,
-            regex: regex,
-            ignored: action == 'Ignore',
-            sensitive_keys: sensitive_keys
+            'location' => location,
+            'regex' => regex,
+            'ignored' => action == 'Ignore',
+            'sensitive_keys' => sensitive_keys
           }
 
           config
@@ -69,7 +69,7 @@ module Supergood
     end
 
     def self.get_str_representation_from_path(request, location)
-      url = URI(request[:url])
+      url = URI(request['url'])
 
       case location
       when 'domain'
@@ -88,13 +88,13 @@ module Supergood
     end
 
     def self.get_endpoint_config(request, remote_config)
-      domain = remote_config.keys.find { |d| get_host_without_www(request[:url]).include?(d) }
+      domain = remote_config.keys.find { |d| get_host_without_www(request['url']).include?(d) }
       return nil unless domain
 
       endpoint_configs = remote_config[domain]
       endpoint_configs.each_value do |endpoint_config|
-        regex = endpoint_config[:regex]
-        location = endpoint_config[:location]
+        regex = endpoint_config['regex']
+        location = endpoint_config['location']
         regex_obj = Regexp.new(regex)
         str_representation = get_str_representation_from_path(request, location)
         next unless str_representation
@@ -128,8 +128,8 @@ module Supergood
           []
         end
       else
-        if obj && obj.is_a?(Hash) && (obj.key?(part.to_sym) || obj.key?(part))
-          expand(parts[1..-1], obj.fetch(part.to_sym, obj[part]), "#{path}#{separator}#{part}")
+        if obj && obj.is_a?(Hash) && obj.key?(part)
+          expand(parts[1..-1], obj[part], "#{path}#{separator}#{part}")
         else
           []
         end
@@ -171,8 +171,8 @@ module Supergood
       # Convert current_key to symbol if necessary
       if index
         current_key = current_key.gsub(/\[\d+\]/, '')
-      elsif hash.keys.include?(current_key.to_sym)
-        current_key = current_key.to_sym
+      elsif hash.keys.include?(current_key)
+        current_key = current_key
       end
 
       return hash unless hash.keys.include?(current_key)
@@ -222,34 +222,33 @@ module Supergood
 
     def self.redact_values_from_keys(event, remote_config, force_redact_all)
       sensitive_key_metadata = []
-      endpoint_config = get_endpoint_config(event[:request], remote_config)
+      endpoint_config = get_endpoint_config(event['request'], remote_config)
 
-      unless (endpoint_config && endpoint_config[:sensitive_keys].any?) || force_redact_all
-        return { event: event, sensitive_key_metadata: sensitive_key_metadata }
+      unless (endpoint_config && endpoint_config['sensitive_keys'].any?) || force_redact_all
+        return { 'event' => event, 'sensitive_key_metadata' => sensitive_key_metadata }
       end
 
       if force_redact_all
         # Need response.body in path
-        sensitive_keys = find_leaf_key_paths(event[:response][:body], ['response', 'body'])
-        sensitive_keys += find_leaf_key_paths(event[:request][:body], ['request', 'body'])
-        sensitive_keys += find_leaf_key_paths(event[:request][:headers], ['request', 'headers'])
-        sensitive_keys += find_leaf_key_paths(event[:response][:headers], ['response', 'headers'])
+        sensitive_keys = find_leaf_key_paths(event['response']['body'], ['response', 'body'])
+        sensitive_keys += find_leaf_key_paths(event['request']['body'], ['request', 'body'])
+        sensitive_keys += find_leaf_key_paths(event['request']['headers'], ['request', 'headers'])
+        sensitive_keys += find_leaf_key_paths(event['response']['headers'], ['response', 'headers'])
       else
-        sensitive_keys = endpoint_config[:sensitive_keys]
+        sensitive_keys = endpoint_config['sensitive_keys']
       end
 
       sensitive_keys = expand_sensitive_key_set_for_arrays(
         event, sensitive_keys.map { |key| marshal_key_path(key) }
       )
-
       sensitive_keys.each do |key_path|
         value = R_.get(event, key_path)
         event = set_value_to_nil(event, key_path)
         # Add sensitive key for array expansion
-        sensitive_key_metadata << { keyPath: unmarshal_key_path(key_path) }.merge(redact_value(value))
+        sensitive_key_metadata << { 'keyPath' => unmarshal_key_path(key_path) }.merge(redact_value(value))
       end
 
-      { event: event, sensitive_key_metadata: sensitive_key_metadata }
+      { 'event' => event, 'sensitive_key_metadata' => sensitive_key_metadata }
     end
 
     def self.redact_value(input)
@@ -272,14 +271,14 @@ module Supergood
         data_length = 1
         data_type = 'boolean'
       end
-      { length: data_length, type: data_type }
+      { 'length' => data_length, 'type' => data_type }
     end
 
     def self.prepare_data(events, remote_config, force_redact_all)
       events.map do |event|
         redacted_event_with_metadata = redact_values_from_keys(event, remote_config, force_redact_all)
-        redacted_event_with_metadata[:event].merge(
-          metadata: { sensitiveKeys: redacted_event_with_metadata[:sensitive_key_metadata] }
+        redacted_event_with_metadata['event'].merge(
+          'metadata': { 'sensitiveKeys': redacted_event_with_metadata['sensitive_key_metadata'] }
         )
       end
     end

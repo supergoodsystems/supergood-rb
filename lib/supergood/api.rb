@@ -34,7 +34,7 @@ module Supergood
         uri = URI(@base_url + '/events')
         response = Net::HTTP.post(uri, payload.to_json, @header_options)
         if response.code == '200'
-          return JSON.parse(response.body, symbolize_names: true)
+          return JSON.parse(response.body)
         elsif response.code == '401'
           raise SupergoodException.new ERRORS[:UNAUTHORIZED]
         elsif response.code != '200' && response.code != '201'
@@ -61,7 +61,7 @@ module Supergood
       uri = URI(@base_url + '/config')
       response = Net::HTTP.get_response(uri, @header_options)
       if response.code == '200'
-        return JSON.parse(response.body, symbolize_names: true)
+        return JSON.parse(response.body)
       else
         raise SupergoodException.new ERRORS[:CONFIG_FETCH_ERROR]
       end
