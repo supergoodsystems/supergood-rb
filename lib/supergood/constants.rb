@@ -5,7 +5,8 @@ ERRORS = {
   POSTING_EVENTS: 'Error Posting Events',
   POSTING_ERRORS: 'Error Posting Errors',
   WRITING_TO_DISK: 'Error writing to disk',
-  TEST_ERROR: 'Test Error for Testing Purpos es',
+  TEST_ERROR: 'Test Error for Testing Purposes',
+  CONFIG_FETCH_ERROR: 'Error Fetching Remote Config',
   UNAUTHORIZED: 'Unauthorized: Invalid Client ID or Secret. Exiting.',
   NO_CLIENT_ID:
     'No Client ID Provided, set SUPERGOOD_CLIENT_ID or pass it as an argument',
@@ -16,13 +17,14 @@ ERRORS = {
 LOCAL_CLIENT_ID = 'local-client-id';
 LOCAL_CLIENT_SECRET = 'local-client-secret';
 
-DEFAULT_SUPERGOOD_BYTE_LIMIT = 500000
+DEFAULT_SUPERGOOD_BYTE_LIMIT = 500_000
 
 DEFAULT_CONFIG = {
-  keysToHash: [],
   flushInterval: 1000,
+  remoteConfigFetchInterval: 10_000,
   ignoredDomains: [],
   allowedDomains: [],
+  forceRedactAll: true
 }
 
 # GZIP_START_BYTES = b'\x1f\x8b'

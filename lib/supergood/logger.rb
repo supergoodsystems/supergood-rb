@@ -13,7 +13,9 @@ module Supergood
     end
 
     def error(data, error, msg)
-      super(error)
+      if(ENV['SUPERGOOD_LOG_LEVEL'] == 'debug')
+        super(error)
+      end
       @api.post_errors(
         {
           error: error.backtrace.join('\n'),
