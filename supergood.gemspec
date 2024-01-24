@@ -18,14 +18,23 @@ Gem::Specification.new do |s|
   s.metadata = { 'source_code_uri' => 'https://github.com/supergoodsystems/supergood-rb', 'license' => 'BUSL-1.1' }
   s.required_ruby_version = Gem::Requirement.new(">= 2.3.0")
 
-  s.add_dependency 'rudash', '~> 4.0', '>= 4.0.2'
+  s.add_runtime_dependency 'base64', '~> 0.1'
+  s.add_runtime_dependency 'digest', '~> 3.1', '>= 3.1.1'
+  s.add_runtime_dependency 'dotenv', '~> 2.8', '>= 2.8.1'
+  s.add_runtime_dependency 'json', '~> 2.6', '>= 2.6.3'
+  s.add_runtime_dependency 'logger', '~> 1.5', '>= 1.6'
+  s.add_runtime_dependency 'rudash', '~> 4.1', '>= 4.1.2'
+  s.add_runtime_dependency 'securerandom', '~> 0.2', '>= 0.2.2'
+  s.add_runtime_dependency 'stringio', '~> 3.0'
+  s.add_runtime_dependency 'uri', '~> 0.12'
+  s.add_runtime_dependency 'zlib', '~> 3.0'
 
-  s.add_development_dependency 'rest-client', '~> 2.1'
-  s.add_development_dependency 'httparty', '~> 0.21.0'
+  s.add_development_dependency 'faraday', '~> 2.7', '>= 2.7.4'
   s.add_development_dependency 'http', '~> 5.1', '>= 5.1.1'
+  s.add_development_dependency 'httparty', '~> 0.21.0'
+  s.add_development_dependency 'rest-client', '~> 2.1'
   s.add_development_dependency 'rspec', '~> 3.12'
   s.add_development_dependency 'webmock', '~> 3.18', '>= 3.18.1'
-  s.add_development_dependency 'faraday', '~> 2.7', '>= 2.7.4'
 
 end
 
